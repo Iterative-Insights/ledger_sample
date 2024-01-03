@@ -24,4 +24,5 @@ dist/
 .env
 
 *.pem
+canister_ids.json
 
