@@ -22,6 +22,7 @@ import Types "./modules/Types";
 import Account "./modules/Account";
 import Hex "./modules/Hex";
 import CRC32 "./modules/CRC32";
+import Buffer "mo:base/Buffer";
 
 // set installer_ Principal when this canister is first installed
 shared ({ caller = installer_ }) actor class LedgerSample() = this {
@@ -51,7 +52,7 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
 
   /// Convert bytes array to hex string.
   /// E.g `[255,255]` to "ffff"
-  public func encode(array : [Nat8]) : async Text {
+  func encode(array : [Nat8]) : Text {
     Array.foldLeft<Nat8, Text>(
       array,
       "",
@@ -96,7 +97,7 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
   public shared ({ caller }) func getCallerPrincipalAndAccountId() : async Text {
     let principal = Principal.toText(caller);
     let accountIdentifier = Account.accountIdentifier(caller, Account.defaultSubaccount());
-    let accountId = await accountToText({ hash = Blob.toArray(accountIdentifier) });
+    let accountId = Hex.encodeAddress(accountIdentifier);
     
     return "Caller's Principal: " # principal # ", Account ID: " # accountId;
   };
@@ -104,36 +105,41 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
   public shared ({ caller }) func getInstallerPrincipalAndAccountId() : async Text {
     let principal = Principal.toText(installer_);
     let accountIdentifier = Account.accountIdentifier(caller, Account.defaultSubaccount());
-    let accountId = await accountToText({ hash = Blob.toArray(accountIdentifier) });
+    let accountId = Hex.encodeAddress(accountIdentifier);
     
     return "installer_'s Principal: " # principal # ", Account ID: " # accountId;
   };
 
-  public func getCanisterPrincipalId() : async Principal {
+  public shared ({ caller }) func getCanisterPrincipalAndAccountId() : async Text {
+    let principal = Principal.toText(Principal.fromActor(this));
+    let accountIdentifier = Account.accountIdentifier(Principal.fromActor(this), Account.defaultSubaccount());
+    let accountId = Hex.encodeAddress(accountIdentifier);
+    
+    return "Canister's Principal: " # principal # ", Account ID: " # accountId;
+  };
+
+  func getCanisterPrincipalId() : Principal {
     return Principal.fromActor(this);
   };
 
-  // Returns the default account identifier of this canister.
-  // public func getCanisterAccountId() : async Account.AccountIdentifier {
-  //   Account.accountIdentifier(Principal.fromActor(this), Account.defaultSubaccount())
+  // // Returns the default account identifier of this canister.
+  // public func getCanisterAccountId() : async Text {
+  //   let accountIdentifier = Account.accountIdentifier(Principal.fromActor(this), Account.defaultSubaccount());
+  //   Hex.encodeAddress(accountIdentifier);
   // };
 
   /// Return the Text of the account identifier.
-  public func accountToText(p : AccountIdentifier) : async Text {
+  func accountToText(p : AccountIdentifier) : Text {
     let crc = CRC32.crc32(p.hash);
-    let aid_bytes = Array.append<Nat8>(crc, p.hash);
+    let buffer = Buffer.Buffer<Nat8>(32);
+    buffer.append(Buffer.fromArray(crc));
+    buffer.append(Buffer.fromArray(p.hash));
+    
+    // let aid_bytes = Array.append<Nat8>(crc, p.hash);
+    let aid_bytes = Buffer.toArray(buffer);
 
-    return await encode(aid_bytes);
+    return encode(aid_bytes);
   };
-
-  public func getCanisterAccountId() : async Text {
-    let accountIdentifier = Account.accountIdentifier(Principal.fromActor(this), Account.defaultSubaccount());
-    return await accountToText({ hash = Blob.toArray(accountIdentifier) });
-  };
-
-  // public func getCanisterAccountId() : async Text {
-  //   return await accountToText(Account.accountIdentifier(Principal.fromActor(this), Account.defaultSubaccount()));
-  // };
 
   public shared ({ caller }) func getBalanceByAccount(
     { accountIdentifier } : {
@@ -179,7 +185,7 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
     let subaccountAddress : SupportedToken.Address = SupportedToken.getCreatorSubaccountAddress({
       token;
       creator = caller;
-      canisterId = await getCanisterPrincipalId();
+      canisterId = getCanisterPrincipalId();
     });
     // Query the corresponding token-ledger canister, wrapping the actual async call with
     // a try/catch to proactively handle the many ways things could go wrong.
@@ -202,19 +208,6 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
       #err({ kind = #CaughtException(Error.message(e)) });
     };
   };
-
-  // public shared ({ caller }) func withdrawICP(amount : Nat64) : async Result.Result<Text, Text> {
-  //   try {
-  //     let to = Principal.toText(caller);
-  //     let result = await Ledger_ICP.send({ to = to; amount = amount });
-  //     switch result {
-  //       case (#ok _) { #ok("Withdrawal successful.") };
-  //       case (#err e) { #err("Withdrawal failed: " # e) };
-  //     };
-  //   } catch e {
-  //     #err("Error: " # Error.message(e));
-  //   };
-  // };
 
   public shared ({ caller }) func withdrawICP(amount : Nat64) : async Result.Result<Text, Text> {
     let now = Time.now();
