@@ -23,11 +23,26 @@ import Account "./modules/Account";
 import Hex "./modules/Hex";
 import CRC32 "./modules/CRC32";
 import Buffer "mo:base/Buffer";
+import Iter "mo:base/Iter";
+import Nat "mo:base/Nat";
 
 // set installer_ Principal when this canister is first installed
 shared ({ caller = installer_ }) actor class LedgerSample() = this {
-
+  stable var balancesStable : [(Principal, Nat64)] = [];
+  // Convert stable variable to HashMap on actor initialization
+  let balances : HashMap.HashMap<Principal, Nat64> = HashMap.fromIter<Principal, Nat64>(
+    Iter.fromArray(balancesStable),
+    balancesStable.size(),
+    Principal.equal,
+    Principal.hash,
+  );
   /** Compulsory constants this canister must adhere to. */
+
+  system func preupgrade() {
+    let iter = balances.entries();
+    balancesStable := Iter.toArray(iter);
+  };
+
   module MagicNumbers {
     // Invoice Canister Constraints:
     public let SMALL_CONTENT_SIZE = 256;
@@ -39,15 +54,141 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
   /** Ids of the token ledger canisters used to create actor supertypes. */
   let CANISTER_IDS = {
     icp_ledger_canister = "ryjl3-tyaaa-aaaaa-aaaba-cai";
+    icp_index_canister = "qhbym-qaaaa-aaaaa-aaafq-cai";
   };
 
   // Invoice canister only uses transfer and balance methods of ledger canisters; these are those supertypes:
   let Ledger_ICP : SupportedToken.Actor_Supertype_ICP = actor (CANISTER_IDS.icp_ledger_canister);
 
+  type Time = Nat64;
+  type ICPTs = Nat64;
+  type Subaccount = Blob;
+  type Memo = Nat64;
+  type BlockHeight = Nat64;
+
+  type TransactionError = { #error : Text };
+
+  // type Transaction = {
+  //   to : Principal;
+  //   fee : ICPTs;
+  //   from : Principal;
+  //   memo : Memo;
+  //   amount : ICPTs;
+  //   time : Time;
+  //   from_subaccount : Subaccount;
+  //   to_subaccount : Subaccount;
+  // };
+
+  type Tokens = { e8s : Nat64 };
+
+  type Operation = {
+    #Approve : {
+      fee : Tokens;
+      from : Text;
+      allowance : Tokens;
+      expires_at : ?{ timestamp_nanos : Nat64 };
+      spender : Text;
+    };
+    #Burn : { from : Text; amount : Tokens };
+    #Mint : { to : Text; amount : Tokens };
+    #Transfer : { to : Text; fee : Tokens; from : Text; amount : Tokens };
+    #TransferFrom : {
+      to : Text;
+      fee : Tokens;
+      from : Text;
+      amount : Tokens;
+      spender : Text;
+    };
+  };
+
+  type Transaction = {
+    memo : Nat64;
+    icrc1_memo : ?[Nat8];
+    operation : Operation;
+    created_at_time : ?{ timestamp_nanos : Nat64 };
+  };
+
+  type GetTransactionsResponse = {
+    #ok : { transactions : [Transaction]; has_more : Bool };
+    #error : TransactionError;
+  };
+
+  type TransactionWithId = { id : Nat64; transaction : Transaction };
+
+  type GetAccountIdentifierTransactionsResponse = {
+    balance : Nat64;
+    transactions : [TransactionWithId];
+    oldest_tx_id : ?Nat64;
+  };
+
+  type GetAccountIdentifierTransactionsError = { message : Text };
+
+  type GetAccountIdentifierTransactionsArgs = {
+    max_results : Nat64;
+    start : ?Nat64;
+    account_identifier : Text;
+  };
+
+  type GetAccountIdentifierTransactionsResult = {
+    #Ok : GetAccountIdentifierTransactionsResponse;
+    #Err : GetAccountIdentifierTransactionsError;
+  };
+
+  type Account = { owner : Principal; subaccount : ?[Nat8] };
+
+  type GetAccountTransactionsArgs = {
+    account : Account;
+    // The txid of the last transaction seen by the client.
+    // If None then the results will start from the most recent
+    // txid.
+    start : ?Nat;
+    // Maximum number of transactions to fetch.
+    max_results : Nat;
+  };
+
+  type GetBlocksRequest = { start : Nat; length : Nat };
+
+  type GetBlocksResponse = { blocks : [[Nat8]]; chain_length : Nat64 };
+
+  type Status = { num_blocks_synced : Nat64 };
+
+  type IndexCanister = actor {
+    // getTransactions : shared (Principal, BlockHeight) -> async GetTransactionsResponse;
+    get_account_identifier_balance : shared (text : Text) -> async Nat64;
+    get_account_identifier_transactions : shared (args : GetAccountIdentifierTransactionsArgs) -> async GetAccountIdentifierTransactionsResult;
+    get_account_transactions : shared (args : GetAccountTransactionsArgs) -> async GetAccountIdentifierTransactionsResult;
+    get_blocks : shared (request : GetBlocksRequest) -> async GetBlocksResponse;
+    // http_request : shared (request : HttpRequest) -> async HttpResponse;
+    ledger_id : shared () -> async Principal;
+    status : shared () -> async Status;
+    icrc1_balance_of : shared (account : Account) -> async Nat64;
+  };
+
+  let indexCanister : IndexCanister = actor (CANISTER_IDS.icp_index_canister);
+
+  public shared func getLedgerId() : async Principal {
+    return await indexCanister.ledger_id();
+  };
+
+  public shared func getStatus() : async Status {
+    return await indexCanister.status();
+  };
+
+  public shared func getAccountIdentifierBalance(accountIdentifier : Text) : async Nat64 {
+    return await indexCanister.get_account_identifier_balance(accountIdentifier);
+  };
+
+  public shared func getAccountIdentifierTransactions(args : GetAccountIdentifierTransactionsArgs) : async GetAccountIdentifierTransactionsResult {
+    return await indexCanister.get_account_identifier_transactions(args);
+  };
+
+  public shared func getAccountTransactions(args : GetAccountTransactionsArgs) : async GetAccountIdentifierTransactionsResult {
+    return await indexCanister.get_account_transactions(args);
+  };
+
   /// Account Identitier type.
   public type AccountIdentifier = {
     hash : [Nat8];
-    // hash : Blob;
   };
 
   /// Convert bytes array to hex string.
@@ -98,7 +239,7 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
     let principal = Principal.toText(caller);
     let accountIdentifier = Account.accountIdentifier(caller, Account.defaultSubaccount());
     let accountId = Hex.encodeAddress(accountIdentifier);
-    
+
     return "Caller's Principal: " # principal # ", Account ID: " # accountId;
   };
 
@@ -106,7 +247,7 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
     let principal = Principal.toText(installer_);
     let accountIdentifier = Account.accountIdentifier(caller, Account.defaultSubaccount());
     let accountId = Hex.encodeAddress(accountIdentifier);
-    
+
     return "installer_'s Principal: " # principal # ", Account ID: " # accountId;
   };
 
@@ -114,7 +255,7 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
     let principal = Principal.toText(Principal.fromActor(this));
     let accountIdentifier = Account.accountIdentifier(Principal.fromActor(this), Account.defaultSubaccount());
     let accountId = Hex.encodeAddress(accountIdentifier);
-    
+
     return "Canister's Principal: " # principal # ", Account ID: " # accountId;
   };
 
@@ -134,7 +275,7 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
     let buffer = Buffer.Buffer<Nat8>(32);
     buffer.append(Buffer.fromArray(crc));
     buffer.append(Buffer.fromArray(p.hash));
-    
+
     // let aid_bytes = Array.append<Nat8>(crc, p.hash);
     let aid_bytes = Buffer.toArray(buffer);
 
@@ -209,32 +350,67 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
     };
   };
 
-  public shared ({ caller }) func withdrawICP(amount : Nat64) : async Result.Result<Text, Text> {
+  public shared ({ caller }) func reclaimICP() : async Result.Result<Text, Text> {
+    let fee : Nat64 = 10_000;
     let now = Time.now();
-    let canisterAccountId = Account.accountIdentifier(Principal.fromActor(this), Account.defaultSubaccount());
-    let canisterBalance = #ICP(await Ledger_ICP.account_balance({ account = canisterAccountId }));
-    let res = await Ledger_ICP.transfer({
-      memo = 0; //Any transaction can store an 8-byte memo — this memo field is used by the Rosetta API to store the nonce that distinguishes between transactions. However, other uses for the field are possible.
-      from_subaccount = null;
-      to = Account.accountIdentifier(installer_, Account.defaultSubaccount());
-      amount = { e8s = amount };
-      fee = { e8s = 10_000 };
-      created_at_time = ?{ timestamp_nanos = Nat64.fromNat(Int.abs(now)) };
-    });
-    switch (res) {
-      case (#Ok(blockIndex)) {
-        return #ok("Paid reward to " # debug_show installer_ # " in block " # debug_show blockIndex);
+    switch (balances.get(caller)) {
+      case (?balance) {
+        if (balance < fee) {
+          return #err("Insufficient funds for fee. The balance is only " # Nat64.toText(balance) # " e8s");
+        };
+        let amount = balance - fee;
+        let res = await Ledger_ICP.transfer({
+          memo = 0;
+          from_subaccount = null;
+          to = Account.accountIdentifier(caller, Account.defaultSubaccount());
+          amount = { e8s = amount };
+          fee = { e8s = fee };
+          created_at_time = ?{ timestamp_nanos = Nat64.fromNat(Int.abs(now)) };
+        });
+        switch (res) {
+          case (#Ok(blockIndex)) {
+            balances.put(caller, 0);
+            return #ok("Sent ICP to " # Principal.toText(caller) # " in block " # Nat64.toText(blockIndex));
+          };
+          case (#Err(#InsufficientFunds { balance })) {
+            return #err("Insufficient funds. The balance is only " # Nat64.toText(balance.e8s) # " e8s");
+          };
+          case (#Err(other)) {
+            return #err("Unexpected error: " # debug_show (other));
+          };
+        };
       };
-      case (#Err(#InsufficientFunds { balance })) {
-        let errMsg = "Top me up! The balance is only " # debug_show balance # " e8s";
-        throw Error.reject(errMsg);
-        return #err(errMsg);
-      };
-      case (#Err(other)) {
-        let errMsg = "Unexpected error: " # debug_show other;
-        throw Error.reject(errMsg);
-        return #err(errMsg);
+      case null {
+        return #err("No balance found for caller: " # Principal.toText(caller));
       };
     };
   };
+
+  public shared ({ caller }) func depositICP(amount : Nat64) : async () {
+    // Subtract the amount from the sender's balance
+    let senderBalance = switch (balances.get(caller)) {
+      case (?balance) balance;
+      case null (0 : Nat64);
+    };
+    assert (senderBalance >= amount);
+    balances.put(caller, senderBalance - amount);
+
+    // Add the amount to the canister's balance
+    let canisterPrincipal = Principal.fromActor(this);
+    let canisterBalance = switch(balances.get(canisterPrincipal)) {
+      case (?balance) balance;
+      case null (0 : Nat64);
+    };
+    balances.put(canisterPrincipal, canisterBalance + amount);
+  };
+
+  public shared ({ caller }) func checkBalance() : async ?Nat64 {
+    return balances.get(caller);
+  };
+
+  public query func getAllBalances() : async [(Principal, Nat64)] {
+    let iter = balances.entries();
+    return Iter.toArray(iter);
+  };
+
 };
