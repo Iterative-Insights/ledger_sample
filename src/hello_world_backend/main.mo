@@ -229,11 +229,7 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
     let c1 = symbols[Nat8.toNat((u8 / base))];
     let c2 = symbols[Nat8.toNat((u8 % base))];
     return Char.toText(c1) # Char.toText(c2);
-  };
-
-  public query func greet(name : Text) : async Text {
-    return "Hello, " # name # "!";
-  };
+  };  
 
   public shared ({ caller }) func getCallerPrincipalAndAccountId() : async Text {
     let principal = Principal.toText(caller);

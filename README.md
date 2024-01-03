@@ -1,59 +1,69 @@
-# hello_world
+# Ledger Sample
 
-Welcome to your new hello_world project and to the internet computer development community. By default, creating a new project adds this README and some template files to your project directory. You can edit these template files to customize your project and to include your own code to speed up the development cycle.
+## Description
 
-To get started, you might want to explore the project directory structure and the default configuration file. Working with this project in your development environment will not affect any production deployment or identity tokens.
+THIS IS A WORK IN PROGRESS, NOT ALL FUNCTIONALITY IS THERE YET.
 
-To learn more before you start working with hello_world, see the following documentation available online:
+This Motoko project provides a ledger sample on the Internet Computer. It includes several public functions that allow you to interact with the ledger. Here's an overview of the available public functions:
 
-- [Quick Start](https://internetcomputer.org/docs/current/developer-docs/setup/deploy-locally)
-- [SDK Developer Tools](https://internetcomputer.org/docs/current/developer-docs/setup/install)
-- [Motoko Programming Language Guide](https://internetcomputer.org/docs/current/motoko/main/motoko)
-- [Motoko Language Quick Reference](https://internetcomputer.org/docs/current/motoko/main/language-manual)
+1. getLedgerId: This function returns the ledger's canister ID.
 
-If you want to start working on your project right away, you might want to try the following commands:
+2. getStatus: This function returns the status of the ledger, including the number of blocks synced.
 
-```bash
-cd hello_world/
-dfx help
-dfx canister --help
+3. getAccountIdentifierBalance: This function takes an account identifier as input and returns the balance of the account.
+
+4. getAccountIdentifierTransactions: This function takes an object with max_results, start, and account_identifier as input and returns the transactions of the account.
+
+5. getAccountTransactions: This function takes an object with account, start, and max_results as input and returns the transactions of the account.
+
+6. greet: This function takes a name as input and returns a greeting message.
+
+7. getCallerPrincipalAndAccountId: This function returns the caller's principal and account ID.
+
+8. getInstallerPrincipalAndAccountId: This function returns the installer's principal and account ID.
+
+9. getCanisterPrincipalAndAccountId: This function returns the canister's principal and account ID.
+
+10. getBalanceByAccount: This function takes an object with accountIdentifier as input and returns the balance of the account.
+
+11. getBalanceByPrincipal: This function takes an object with principal as input and returns the balance of the account.
+
+12. getCanisterBalance: This function returns the balance of the canister.
+
+13. get_caller_balance: This function takes an object with token as input and returns the balance of the caller.
+
+14. reclaimICP: This function allows the caller to reclaim their ICP.
+
+15. depositICP: This function takes an amount as input and deposits the amount into the caller's account.
+
+16. checkBalance: This function returns the balance of the caller.
+
+17. getAllBalances: This function returns all balances.
+
+Please note that the actual functionality of these functions depends on the implementation in the code.
+
+## Building with Vessel
+
+[Vessel](https://github.com/dfinity/vessel) is a package manager for the Motoko programming language, which is used to develop canisters for the Internet Computer.
+
+You will need to download and install Vessel 0.6.4 as there's a bug with 0.7.0 as of Jan 4, 2024
+
+Then run 
 ```
-
-## Running the project locally
-
-If you want to test your project locally, you can use the following commands:
-
-```bash
-# Starts the replica, running in the background
-dfx start --background
-
-# Deploys your canisters to the replica and generates your candid interface
-dfx deploy
+vessel sources
 ```
+To build the dependencies.
 
-Once the job completes, your application will be available at `http://localhost:4943?canisterId={asset_canister_id}`.
-
-If you have made changes to your backend canister, you can generate a new candid interface with
-
-```bash
-npm run generate
+Running 
 ```
-
-at any time. This is recommended before starting the frontend development server, and will be run automatically any time you run `dfx deploy`.
-
-If you are making frontend changes, you can start a development server with
-
-```bash
-npm start
+dfx deploy --network ic
 ```
+Will deploy the project to mainnet.  Each canister will need about 3T cycles.
 
-Which will start a server at `http://localhost:8080`, proxying API requests to the replica at port 4943.
+## Contributing
 
-### Note on frontend environment variables
+We welcome contributions to this project. Please see our [Contributing Guide](CONTRIBUTING.md) for more details.
 
-If you are hosting frontend code somewhere without using DFX, you may need to make one of the following adjustments to ensure your project does not fetch the root key in production:
+## License
 
-- set`DFX_NETWORK` to `ic` if you are using Webpack
-- use your own preferred method to replace `process.env.DFX_NETWORK` in the autogenerated declarations
-  - Setting `canisters -> {asset_canister_id} -> declarations -> env_override to a string` in `dfx.json` will replace `process.env.DFX_NETWORK` with the string in the autogenerated declarations
-- Write your own `createActor` constructor
+This project is licensed under the [insert license]. See the [LICENSE](LICENSE) file for details.
