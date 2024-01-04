@@ -8,5 +8,6 @@ module Supertype {
   public type Actor = actor {
     transfer : shared Types.TransferArgs -> async Types.TransferResult;
     account_balance : shared query Types.AccountBalanceArgs -> async Types.Tokens;
+    get_blocks : shared query ({start:Nat; length:Nat}) -> async ({blocks:[[Nat8]]; chain_length:Nat64});
   };
 };

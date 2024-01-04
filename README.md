@@ -46,13 +46,14 @@ Please note that the actual functionality of these functions depends on the impl
 
 [Vessel](https://github.com/dfinity/vessel) is a package manager for the Motoko programming language, which is used to develop canisters for the Internet Computer.
 
-You will need to download and install Vessel 0.6.4 as there's a bug with 0.7.0 as of Jan 4, 2024
+On Ubuntu 22.04, use Vessel 0.7.0
+On Ubuntu 20.04, use Vessel 0.6.4
 
 Then run 
 ```
 vessel sources
 ```
-To build the dependencies.
+To build the dependencies before opening the project in Visual Studio.
 
 Running 
 ```
