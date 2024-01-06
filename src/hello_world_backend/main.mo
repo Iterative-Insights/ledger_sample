@@ -31,6 +31,9 @@ import Source "mo:ulid/Source";
 import ULID "mo:ulid/ULID";
 import XorShift "mo:rand/XorShift";
 
+import Map "mo:map/Map";
+import { nhash } "mo:map/Map";
+
 // set installer_ Principal when this canister is first installed
 shared ({ caller = installer_ }) actor class LedgerSample() = this {
   stable var balancesStable : [(Principal, Nat64)] = [];
@@ -48,6 +51,20 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
     let iter = balances.entries();
     balancesStable := Iter.toArray(iter);
   };
+
+  type TransactionType = { #Deposit; #Withdrawal };
+  type TransactionInfo = { txType : TransactionType; processed : Bool };
+  //This map is actually from https://github.com/ZhenyaUsenko/motoko-hash-map
+  //and is stable
+  //also see https://forum.dfinity.org/t/map-v8-0-0-its-finally-here/18962/21
+  //the key is from the transactionId that gets incremented automatically
+  //for each new transaction, and is passed to the memo field when calling
+  //ledger transfer.  the boolean within TransactionInfo is true if
+  //the transaction has been processed
+  //a transaction can mean a deposit transaction into the canister, or
+  //a withdrawal from the canister
+  stable var transactionLog : Map.Map<Nat, TransactionInfo> = 
+    Map.new<Nat, TransactionInfo>();
 
   /** Ids of the mainnet canisters used to create actor supertypes. */
   let CANISTER_IDS = {
@@ -186,8 +203,8 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
   };
 
   public shared ({ caller }) func reclaimICP() : async Result.Result<Text, Text> {
-    
-     if (isAlreadingProcessing_(caller)) {
+
+    if (isAlreadyProcessing_(caller)) {
       return #err("Error: Operation in progress for: " # debug_show (caller));
     };
 
@@ -195,7 +212,7 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
     switch (balances.get(caller)) {
       case (?balance) {
         if (balance < transferFee) {
-          return #err("Error: Insufficient funds for fee. The balance is only " # debug_show(balance) # " e8s");
+          return #err("Error: Insufficient funds for fee. The balance is only " # debug_show (balance) # " e8s");
         };
         isAlreadyProcessingLookup_.put(caller, now);
         let withdrawAmount = balance - transferFee;
@@ -211,7 +228,7 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
           case (#Ok(blockIndex)) {
             balances.put(caller, 0);
             isAlreadyProcessingLookup_.delete(caller);
-            return #ok("Reclaimed: " # debug_show(withdrawAmount) # " e8s ICP for " # Principal.toText(caller) # " in block " # Nat64.toText(blockIndex));
+            return #ok("Reclaimed: " # debug_show (withdrawAmount) # " e8s ICP for " # Principal.toText(caller) # " in block " # Nat64.toText(blockIndex));
           };
           case (#Err(#InsufficientFunds { balance })) {
             isAlreadyProcessingLookup_.delete(caller);
@@ -235,7 +252,9 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
       case (?balance) Nat64.toText(balance);
       case null "0";
     };
-    return "Caller's ID: " # Principal.toText(caller) # ", Canister's ID: " # Principal.toText(getCanisterPrincipalId()) # ", Balance: " # balance;
+    return "Caller's ID: " # Principal.toText(caller) #
+    ", Canister's ID: " # Principal.toText(getCanisterPrincipalId()) #
+    ", Balance: " # balance;
   };
 
   public query func getAllBalances() : async [(Principal, Nat64)] {
@@ -243,8 +262,6 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
     return Iter.toArray(iter);
   };
 
-  // Change the key of the map to be a tuple of the principal and the block index
-  let pendingDeposits = TrieMap.TrieMap<Principal, [Nat]>(Principal.equal, Principal.hash);
   stable var transactionCounter : Nat = 0;
 
   func incTransactionCounter() : Nat {
@@ -253,7 +270,7 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
   };
 
   // Lock lookup map to synchronize Principal actions against the canister
-  let isAlreadyProcessingLookup_ : HashMap.HashMap<Principal, Time.Time> = HashMap.HashMap<Principal, Time.Time>(0, Principal.equal, Principal.hash);  
+  let isAlreadyProcessingLookup_ : HashMap.HashMap<Principal, Time.Time> = HashMap.HashMap<Principal, Time.Time>(0, Principal.equal, Principal.hash);
   let isAlreadyProcessingTimeout_ : Nat = 600_000_000_000; // "10 minutes ns"
 
   public query func getIsAlreadyProcessingLookup() : async [(Principal, Time.Time)] {
@@ -261,7 +278,7 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
     return Iter.toArray(iter);
   };
 
-  func isAlreadingProcessing_(caller : Principal) : Bool {
+  func isAlreadyProcessing_(caller : Principal) : Bool {
     switch (isAlreadyProcessingLookup_.get(caller)) {
       // No concurrent access of this invoice is taking place.
       case null return false;
@@ -281,14 +298,14 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
   };
 
   /**
-This function deposits the given amount of ICP while checking isAlreadingProcessing_.
-If there is no already processing transaction, then it will create a lock entry
-in isAlreadyProcessingLookup_
-It will pass a unique transaction id to the memo of the ledger transfer function,
-and transfer the ICP to the canisters account
-if successful it returns the blockIndex of the succesful deposit, and updates the
-canister's balance map
-if failed then an error is returned with an error message
+  This function deposits the given amount of ICP while checking isAlreadingProcessing_.
+  If there is no already processing transaction, then it will create a lock entry
+  in isAlreadyProcessingLookup_
+  It will pass a unique transaction id to the memo of the ledger transfer function,
+  and transfer the ICP to the canisters account
+  if successful it returns the blockIndex of the succesful deposit, and updates the
+  canister's balance map
+  if failed then an error is returned with an error message
 **/
   public shared ({ caller }) func deposit_icp(
     amount : LedgerCanisterInterface.Tokens
@@ -302,7 +319,7 @@ if failed then an error is returned with an error message
     let transactionIdText = Nat.toText(transactionId);
     let transactionIdNat64 = Nat64.fromNat(transactionId);
 
-    if (isAlreadingProcessing_(caller)) {
+    if (isAlreadyProcessing_(caller)) {
       return #err("Error: Operation in progress for: " # debug_show (caller));
     };
     let now = Time.now();
@@ -335,61 +352,10 @@ if failed then an error is returned with an error message
         case _ {}; // No need to handle error here, as it would have already been returned
       };
 
-      //Now confirm that the transfer happened by checking the memo in that block
-      let queryBlocksResult : Result.Result<Nat, Text> = try {
-        let query_blocks_response = await Ledger_ICP.query_blocks({
-          start = Nat64.fromNat(blockIndex);
-          length = 1;
-        });
-        let firstBlock = query_blocks_response.blocks[0];
-
-        let memo = firstBlock.transaction.memo;
-        if (memo != transactionIdNat64) {
-          return #err("transactionId different from memo: " # debug_show (memo) # " transactionId: " # transactionIdText);
-        };
-
-        let op = firstBlock.transaction.operation;
-        switch (op) {
-          case (? #Transfer(transferOp)) {
-            // Handle Transfer operation here
-            // You can access the fields of the transfer operation like this:
-            let to = transferOp.to;
-            let fee = transferOp.fee;
-            let from = transferOp.from;
-            let transferAmount = transferOp.amount;
-            // Check if 'to' is the canister id
-            let canisterId = Account.accountIdentifier(
-              Principal.fromActor(this),
-              Account.defaultSubaccount(),
-            );
-
-            if (to != Blob.toArray(canisterId)) {
-              return #err("Invalid recipient. The 'to' field: " # debug_show (to) # " should be the canister id: " # debug_show (canisterId));
-            };
-            // Check if fee is 10000
-            if (fee != { e8s = transferFee }) {
-              return #err("Invalid fee. The fee should be 10000.");
-            };
-
-            // Check if 'from' is the caller
-            if (from != Blob.toArray(Principal.toBlob(caller))) {
-              return #err("Invalid sender. The 'from' field: " # debug_show (from) # " should be the caller: " # debug_show (caller));
-            };
-
-            // Check if 'amount' is the same as the amount passed in
-            if (transferAmount != amount) {
-              return #err("Invalid amount. The 'amount' field should be the same as the amount passed in.");
-            };
-            //if all checks pass, return the blockIndex of the confirmed deposit
-            #ok(blockIndex);
-          };
-          // case (?#Approve op) { return #err("Operation is Approve"); }; /* handle Approve operation */ };
-          case _ return #err("Unexpected operation type: " # debug_show (op)); // handle all other operations
-        };
-      } catch e {
-        return #err("Query blocks failed for reason:\n" # Error.message(e));
-      };
-      //for balances kept track in the canister we subtract the transfer fee 
+      //Confirm that the transfer happened by verifying transactionIdNat64 = memo
+      //in that block
+      let queryBlocksResult : Result.Result<Nat, Text> = await verifyDepositWithLedger(caller, blockIndex, amount.e8s, transactionIdNat64);
+      //for balances kept track in the canister we subtract the transfer fee
       //required to send the balance back.  Should we do this?
       balances.put(caller, amount.e8s);
       isAlreadyProcessingLookup_.delete(caller);
@@ -406,4 +372,130 @@ if failed then an error is returned with an error message
     };
   };
 
+  public shared ({ caller }) func notifyDeposit(
+    transactionId : Nat,
+    blockIndex : Nat,
+    amount : Nat64
+  ) : async Result.Result<Nat, Text> {
+    if (isAlreadyProcessing_(caller)) {
+      //we need to retry then
+      return #err("isAlreadyProcessing_: " # debug_show (caller));
+    } else {
+      isAlreadyProcessingLookup_.put(caller, Time.now());
+
+      if (doesTransactionExist(transactionId)) {
+        // A transaction with the same ID already exists, this indicates a double-spending attempt
+        isAlreadyProcessingLookup_.delete(caller);
+        return #err("A transaction with the same ID already exists,
+          indicating a double-spending attempt");
+      };
+
+      // Add the transaction to the log
+      let txInfo : TransactionInfo = { txType = #Deposit; processed = false };
+      addTransactionToLog(transactionId, txInfo);
+
+      let memo : Nat64 = Nat64.fromNat(transactionId);
+      let verifyResult : Result.Result<Nat, Text> = await verifyDepositWithLedger(
+        caller, blockIndex, amount, memo);
+      switch (verifyResult) {
+        case (#ok(blockIndex)) {
+          // Verify the transaction with the ledger canister
+          // Update the balance map with the deposit amount
+          let currentBalance = balances.get(caller);
+          let newBalance = switch (currentBalance) {
+            case (null) amount; // If currentBalance is null, use amount as the new balance
+            case (?balance) balance + amount; // If currentBalance has a value, add amount to it
+          };
+          balances.put(caller, newBalance);
+          let updatedTxInfo : TransactionInfo = { txType = txInfo.txType; processed = true };
+          addTransactionToLog(transactionId, updatedTxInfo); // Update the transaction log
+          isAlreadyProcessingLookup_.delete(caller);
+          return #ok(blockIndex);
+        };
+        case (#err(err)) { 
+          isAlreadyProcessingLookup_.delete(caller);
+          return #err(
+          "The transaction could not be verified: " #debug_show (err)) };
+      };    
+    };
+  };
+  
+  func doesTransactionExist(transactionId: Nat): Bool {
+    switch (transactionLog.get(transactionId)) {
+      case null { false };
+      case _ { true };
+    };
+  };
+
+  func addTransactionToLog(transactionId: Nat, txInfo: TransactionInfo): () {
+    Map.set(transactionLog, nhash, transactionId, txInfo);
+  };
+
+  // returns blockIndex from ledger of confirmed deposit
+  func verifyDepositWithLedger(
+    caller : Principal,
+    blockIndex : Nat,
+    amount : Nat64,
+    transactionIdNat64 : Nat64,
+  ) : async Result.Result<Nat, Text> {
+    //Now confirm that the transfer happened by checking the memo in that block
+    let queryBlocksResult : Result.Result<Nat, Text> = try {
+      let query_blocks_response = await Ledger_ICP.query_blocks({
+        start = Nat64.fromNat(blockIndex);
+        length = 1;
+      });
+      let firstBlock = query_blocks_response.blocks[0];
+
+      let memo = firstBlock.transaction.memo;
+      if (memo != transactionIdNat64) {
+        return #err(
+          "transactionId different from memo: " # debug_show (memo) #
+          " transactionId: " # debug_show (transactionIdNat64)
+        );
+      };
+
+      let op = firstBlock.transaction.operation;
+      switch (op) {
+        case (? #Transfer(transferOp)) {
+          // Handle Transfer operation here
+          // You can access the fields of the transfer operation like this:
+          let to = transferOp.to;
+          let fee = transferOp.fee;
+          let from = transferOp.from; //from is available from query_blocks
+          let transferAmount = transferOp.amount;
+          // Check if 'to' is the canister id
+          let canisterId = Account.accountIdentifier(
+            Principal.fromActor(this),
+            Account.defaultSubaccount(),
+          );
+
+          if (to != Blob.toArray(canisterId)) {
+            return #err("Invalid recipient. The 'to' field: " # debug_show (to) # " should be the canister id: " # debug_show (canisterId));
+          };
+          // Check if fee is 10000
+          if (fee != { e8s = transferFee }) {
+            return #err("Invalid fee. The fee should be 10000.");
+          };
+
+          // Check if 'from' is the caller
+          if (from != Blob.toArray(Principal.toBlob(caller))) {
+            return #err("Invalid sender. The 'from' field: " # debug_show (from) # " should be the caller: " # debug_show (caller));
+          };
+
+          // Check if 'amount' is the same as the amount passed in
+          if (transferAmount.e8s != amount) {
+            return #err("Invalid amount. The 'amount' field should be the same as the amount passed in.");
+          };
+          //if all checks pass, return the blockIndex of the confirmed deposit
+          return #ok(blockIndex);
+        };
+        // case (?#Approve op) { return #err("Operation is Approve"); }; /* handle Approve operation */ };
+        case _ return #err("Unexpected operation type: " # debug_show (op)); // handle all other operations
+      };
+    } catch e {
+      return #err("Query blocks failed for reason:\n" # Error.message(e));
+    };
+  };
+
+  
 };

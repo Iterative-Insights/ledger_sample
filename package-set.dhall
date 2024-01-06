@@ -46,6 +46,11 @@ let additions = [
   , version = "v0.1.3"
   , dependencies = [ "base-0.7.3", "encoding", "io" ]
   },
+  { name = "map"
+  , repo = "https://github.com/ZhenyaUsenko/motoko-hash-map.git"
+  , version = "v9.0.1"
+  , dependencies = [ "base"]
+  }
 ]
 
 in icbase # icos # additions
