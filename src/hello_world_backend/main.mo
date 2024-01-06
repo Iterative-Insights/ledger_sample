@@ -2,6 +2,7 @@ import Account "./modules/Account";
 import CRC32 "./modules/CRC32";
 import Hex "./modules/Hex";
 import IndexCanisterInterface "./modules/IndexCanisterInterface";
+import LedgerCanisterInterface "./modules/LedgerCanisterInterface";
 import SupportedToken "./modules/supported-token/SupportedToken";
 import Types "./modules/Types";
 
@@ -62,8 +63,7 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
   };
 
   // Invoice canister only uses transfer and balance methods of ledger canisters; these are those supertypes:
-  let Ledger_ICP : SupportedToken.Actor_Supertype_ICP = actor (CANISTER_IDS.icp_ledger_canister);
-
+  let Ledger_ICP : LedgerCanisterInterface.LedgerCanister = actor (CANISTER_IDS.icp_ledger_canister);
   let indexCanister : IndexCanisterInterface.IndexCanister = actor (CANISTER_IDS.icp_index_canister);
 
   public shared func getLedgerId() : async Principal {
@@ -243,7 +243,7 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
   // Change the key of the map to be a tuple of the principal and the block index
   let pendingDeposits = TrieMap.TrieMap<Principal, [Nat]>(Principal.equal, Principal.hash);
   stable var transactionCounter : Nat = 0;
-  
+
   func incTransactionCounter() : Nat {
     transactionCounter += 1;
     return transactionCounter;
@@ -281,71 +281,112 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
     };
   };
 
-/**
+  /**
 This function deposits the given amount of ICP while checking isAlreadingProcessing_.
 If there is no already processing transaction, then it will create a lock entry
 in isAlreadyProcessingLookup_
 It will pass a unique transaction id to the memo of the ledger transfer function,
-and transfer the ICP to the canisters account 
+and transfer the ICP to the canisters account
+if successful it returns the blockIndex of the succesful deposit
+if failed then an error is returned with an error message
 **/
-  // public shared ({ caller }) func deposit_icp(
-  //   { amount; } : Types.DepositICPArgs
-  // ) : async Types.DepositICPResult {
+  public shared ({ caller }) func deposit_icp(
+    amount : LedgerCanisterInterface.Tokens
+  ) : async Result.Result<Nat, Text> {
 
-  //   let transactionId = incTransactionCounter();
-  //   if (isAlreadingProcessing_(transactionId, caller)) {
-  //     return #err({ kind = #InProgress });
-  //   };
-  //   isAlreadyProcessingLookup_.put(transactionId, (Time.now(), caller));
-  //   let canisterPrincipal = Principal.fromActor(this); // Get the canister's principal
-  //   let canisterAccountIdentifier = Account.accountIdentifier(canisterPrincipal, Account.defaultSubaccount()); // Convert the canister's principal to an account identifier
+    let transactionId = incTransactionCounter();
+    let transactionIdText = Nat.toText(transactionId);
+    let transactionIdNat64 = Nat64.fromNat(transactionId);
 
-  //   let transferResult : Result.Result<Nat, Text> = try {
-  //     await Ledger_ICP.transfer({
-  //       to = canisterAccountIdentifier;
-  //       amount = amount;
-  //       fee = 10000;
-  //       memo = Nat64.fromNat(transactionId);
-  //       from_subaccount = null;
-  //       created_at_time = Time.now();
-  //     });
-  //     #ok(transactionId);
-  //   } catch e {
-  //     #err("Transfer failed for reason:\n" # Error.message(e));
-  //   };
-  //   let queryBlocksResult : Result.Result<Nat, Text> = try {
-  //     let blocks = await Ledger_ICP.query_blocks({
-  //       start = Nat64.fromNat(transactionId);
-  //       count = 1;
-  //     });
-  //     switch (blocks) {
-  //       case ([]): #err("No blocks found for transaction");
-  //       case (block :: ) {
-  //         switch (block.transactions) {
-  //           case ([]): #err("No transactions found in block");
-  //           case (transaction :: _) {
-  //             if (transaction.from == caller &&
-  //                 transaction.to == getCanisterPrincipalAndAccountId().accountIdentifier &&
-  //                 transaction.memo == Nat64.fromNat(transactionId)) {
-  //               #ok(transactionId);
-  //             } else {
-  //               #err("Transaction details do not match");
-  //             };
-  //           };
-  //         };
-  //       };
-  //     };
-  //   } catch e {
-  //     #err("Query blocks failed for reason:\n" # Error.message(e));
-  //   };
-  //   isAlreadyProcessingLookup_.delete(transactionId);
-  //   return transferResult;
-  // };
+    if (isAlreadingProcessing_(transactionIdText, caller)) {
+      return #err("Error: Operation in progress: " #transactionIdText);
+    };
+    isAlreadyProcessingLookup_.put(transactionIdText, (Time.now(), caller));
+    let canisterPrincipal = Principal.fromActor(this); // Get the canister's principal
+    let canisterAccountIdentifier = Account.accountIdentifier(canisterPrincipal, Account.defaultSubaccount()); // Convert the canister's principal to an account identifier
+    let now = Time.now();
+    var blockIndex : Nat = 0;
 
+    let transferResponse = await Ledger_ICP.transfer({
+      to = canisterAccountIdentifier;
+      amount = amount;
+      fee = { e8s = 10000 };
+      memo = transactionIdNat64;
+      from_subaccount = null;
+      created_at_time = ?{ timestamp_nanos = Nat64.fromNat(Int.abs(now)) };
+    });
 
+    let transferResult : Result.Result<Nat, Text> = switch (transferResponse) {
+      case (#Ok(transferResponseBlockIndex)) #ok(Nat64.toNat(transferResponseBlockIndex));
+      case (#Err(err)) return #err(debug_show (err));
+    };
 
+    switch (transferResult) {
+      case (#ok(transferResultIndex)) {
+        blockIndex := transferResultIndex;
+      };
+      case _ {}; // No need to handle error here, as it would have already been returned
+    };
 
-  /****Recovers funds from an invoice subaccount for the given invoice id.**
+    //Now confirm that the transfer happened by checking the memo in that block
+    let queryBlocksResult : Result.Result<Nat, Text> = try {
+      let query_blocks_response = await Ledger_ICP.query_blocks({
+        start = Nat64.fromNat(blockIndex);
+        length = 1;
+      });
+      let firstBlock = query_blocks_response.blocks[0];
+
+      let memo = firstBlock.transaction.memo;
+      if (memo != transactionIdNat64) {
+        return #err("transactionId different from memo: " # debug_show(memo) # " transactionId: " # transactionIdText);
+      };
+
+      let op = firstBlock.transaction.operation;
+      switch (op) {
+        case (? #Transfer(transferOp)) {
+          // Handle Transfer operation here
+          // You can access the fields of the transfer operation like this:
+          let to = transferOp.to;
+          let fee = transferOp.fee;
+          let from = transferOp.from;
+          let transferAmount = transferOp.amount;
+          // Check if 'to' is the canister id
+          let canisterId = Account.accountIdentifier(
+            Principal.fromActor(this),
+            Account.defaultSubaccount(),
+          );
+
+          if (to != Blob.toArray(canisterId)) {
+            return #err("Invalid recipient. The 'to' field: " # debug_show(to) # " should be the canister id: " # debug_show(canisterId));
+          };
+          // Check if fee is 10000
+          if (fee != { e8s = 10000 }) {
+            return #err("Invalid fee. The fee should be 10000.");
+          };
+
+          // Check if 'from' is the caller
+          if (from != Blob.toArray(Principal.toBlob(caller))) {
+            return #err("Invalid sender. The 'from' field: " # debug_show(from) # " should be the caller: " # debug_show(caller));
+          };
+
+          // Check if 'amount' is the same as the amount passed in
+          if (transferAmount != amount) {
+            return #err("Invalid amount. The 'amount' field should be the same as the amount passed in.");
+          };
+          //if all checks pass, return the blockIndex of the confirmed deposit
+          #ok(blockIndex);
+        };
+        // case (?#Approve op) { return #err("Operation is Approve"); }; /* handle Approve operation */ };
+        case _ return #err("Unexpected operation type: " # debug_show(op)); // handle all other operations
+      };
+    } catch e {
+      return #err("Query blocks failed for reason:\n" # Error.message(e));
+    };
+    isAlreadyProcessingLookup_.delete(Nat.toText(transactionId));
+    return #ok(blockIndex);
+  };
+
+/****Recovers funds from an invoice subaccount for the given invoice id.**
       This method can be used to refund partial payments of an invoice not yet successfully
     verified paid or transfer funds out from an invoice subaccount already successfully
     verified if they are mistakenly sent after or in addition to the amount already paid.
@@ -362,104 +403,104 @@ and transfer the ICP to the canisters account
     recover the balance of or verify the same invoice at the same time; however this lock
     will automatically be released if enough time has elapsed between calls.
     _Only authorized for the invoice's creator and those on the invoice's verify permission list._  */
-  
-  // public shared ({ caller }) func recover_invoice_subaccount_balance(
-  //   { id; destination } : Types.RecoverInvoiceSubaccountBalanceArgs
-  // ) : async Types.RecoverInvoiceSubaccountBalanceResult {
 
-  //   let { token; creator } = invoice;
-  //   switch (SupportedToken.getAddressOrUnitErr(token, destination)) {
-  //     case (#err) return #err({ kind = #InvalidDestination });
-  //     case (#ok destinationAddress) {
-  //       if (isAlreadingProcessing_(id, caller)) {
-  //         return #err({ kind = #InProgress });
-  //       };
-  //       isAlreadyProcessingLookup_.put(id, (Time.now(), caller));
-  //       let invoiceSubaccountAddress = SupportedToken.getInvoiceSubaccountAddress({
-  //         token;
-  //         id;
-  //         creator;
-  //         canisterId = getInvoiceCanisterId_();
-  //       });
-  //       let balanceCallResponse : Result.Result<Nat, Text> = try {
-  //         switch invoiceSubaccountAddress {
-  //           case (#ICP accountIdentifier) {
-  //             let { e8s } = await Ledger_ICP.account_balance({
-  //               account = accountIdentifier;
-  //             });
-  //             #ok(Nat64.toNat(e8s));
-  //           };
-  //           case (#ICRC1 account) #ok(await Ledger_ICRC1.icrc1_balance_of(account));
-  //         };
-  //       } catch e {
-  //         #err("Balance call failed for reason:\n" # Error.message(e));
-  //       };
-  //       switch balanceCallResponse {
-  //         case (#err err) {
-  //           isAlreadyProcessingLookup_.delete(id);
-  //           #err({ kind = #CaughtException(err) });
-  //         };
-  //         case (#ok currentBalance) {
-  //           if (currentBalance == 0) {
-  //             isAlreadyProcessingLookup_.delete(id);
-  //             return #err({ kind = #NoBalance });
-  //           } else {
-  //             let fee = SupportedToken.getTransactionFee(token);
-  //             // Verify amount to transfer is enough not to trap covering the
-  //             // transfer fee and ending up transferring at least one token.
-  //             if (currentBalance <= fee) {
-  //               isAlreadyProcessingLookup_.delete(id);
-  //               return #err({ kind = #InsufficientTransferAmount });
-  //             } else {
-  //               let stTransferArgs = SupportedToken.getTransferArgsFromInvoiceSubaccount({
-  //                 id;
-  //                 creator;
-  //                 amountLessTheFee = (currentBalance - fee);
-  //                 fee;
-  //                 to = destinationAddress;
-  //               });
-  //               let transferCallResponse : Result.Result<SupportedToken.TransferResult, Text> = try {
-  //                 switch stTransferArgs {
-  //                   case (#ICP transferArgs) {
-  //                     let transferResult = await Ledger_ICP.transfer(getInvoiceCanisterId_(), transferArgs);
-  //                     #ok(#ICP(transferResult));
-  //                   };
-  //                   case (#ICRC1 transferArgs) {
-  //                     let transferResult = await Ledger_ICRC1.icrc1_transfer(getInvoiceCanisterId_(), transferArgs);
-  //                     #ok(#ICRC1(transferResult));
-  //                   };
-  //                 };
-  //               } catch e {
-  //                 #err("Transfer call failed for reason:\n" # Error.message(e));
-  //               };
-  //               switch transferCallResponse {
-  //                 case (#err errMsg) {
-  //                   isAlreadyProcessingLookup_.delete(id);
-  //                   #err({ kind = #CaughtException(errMsg) });
-  //                 };
-  //                 case (#ok stTransferResult) {
-  //                   switch (SupportedToken.rewrapTransferResults(stTransferResult)) {
-  //                     case (#ok transferSuccess) {
-  //                       let balanceRecovered = SupportedToken.wrapAsTokenAmount(token, currentBalance - fee);
-  //                       isAlreadyProcessingLookup_.delete(id);
-  //                       #ok({ transferSuccess; balanceRecovered });
-  //                     };
-  //                     case (#err transferErr) {
-  //                       isAlreadyProcessingLookup_.delete(id);
-  //                       #err({
-  //                         kind = #SupportedTokenTransferErr(transferErr);
-  //                       });
-  //                     };
-  //                   };
-  //                 };
-  //               };
-  //             };
-  //           };
-  //         };
-  //       };
-  //     };
-  //   };
+// public shared ({ caller }) func recover_invoice_subaccount_balance(
+//   { id; destination } : Types.RecoverInvoiceSubaccountBalanceArgs
+// ) : async Types.RecoverInvoiceSubaccountBalanceResult {
 
-  // };
+//   let { token; creator } = invoice;
+//   switch (SupportedToken.getAddressOrUnitErr(token, destination)) {
+//     case (#err) return #err({ kind = #InvalidDestination });
+//     case (#ok destinationAddress) {
+//       if (isAlreadingProcessing_(id, caller)) {
+//         return #err({ kind = #InProgress });
+//       };
+//       isAlreadyProcessingLookup_.put(id, (Time.now(), caller));
+//       let invoiceSubaccountAddress = SupportedToken.getInvoiceSubaccountAddress({
+//         token;
+//         id;
+//         creator;
+//         canisterId = getInvoiceCanisterId_();
+//       });
+//       let balanceCallResponse : Result.Result<Nat, Text> = try {
+//         switch invoiceSubaccountAddress {
+//           case (#ICP accountIdentifier) {
+//             let { e8s } = await Ledger_ICP.account_balance({
+//               account = accountIdentifier;
+//             });
+//             #ok(Nat64.toNat(e8s));
+//           };
+//           case (#ICRC1 account) #ok(await Ledger_ICRC1.icrc1_balance_of(account));
+//         };
+//       } catch e {
+//         #err("Balance call failed for reason:\n" # Error.message(e));
+//       };
+//       switch balanceCallResponse {
+//         case (#err err) {
+//           isAlreadyProcessingLookup_.delete(id);
+//           #err({ kind = #CaughtException(err) });
+//         };
+//         case (#ok currentBalance) {
+//           if (currentBalance == 0) {
+//             isAlreadyProcessingLookup_.delete(id);
+//             return #err({ kind = #NoBalance });
+//           } else {
+//             let fee = SupportedToken.getTransactionFee(token);
+//             // Verify amount to transfer is enough not to trap covering the
+//             // transfer fee and ending up transferring at least one token.
+//             if (currentBalance <= fee) {
+//               isAlreadyProcessingLookup_.delete(id);
+//               return #err({ kind = #InsufficientTransferAmount });
+//             } else {
+//               let stTransferArgs = SupportedToken.getTransferArgsFromInvoiceSubaccount({
+//                 id;
+//                 creator;
+//                 amountLessTheFee = (currentBalance - fee);
+//                 fee;
+//                 to = destinationAddress;
+//               });
+//               let transferCallResponse : Result.Result<SupportedToken.TransferResult, Text> = try {
+//                 switch stTransferArgs {
+//                   case (#ICP transferArgs) {
+//                     let transferResult = await Ledger_ICP.transfer(getInvoiceCanisterId_(), transferArgs);
+//                     #ok(#ICP(transferResult));
+//                   };
+//                   case (#ICRC1 transferArgs) {
+//                     let transferResult = await Ledger_ICRC1.icrc1_transfer(getInvoiceCanisterId_(), transferArgs);
+//                     #ok(#ICRC1(transferResult));
+//                   };
+//                 };
+//               } catch e {
+//                 #err("Transfer call failed for reason:\n" # Error.message(e));
+//               };
+//               switch transferCallResponse {
+//                 case (#err errMsg) {
+//                   isAlreadyProcessingLookup_.delete(id);
+//                   #err({ kind = #CaughtException(errMsg) });
+//                 };
+//                 case (#ok stTransferResult) {
+//                   switch (SupportedToken.rewrapTransferResults(stTransferResult)) {
+//                     case (#ok transferSuccess) {
+//                       let balanceRecovered = SupportedToken.wrapAsTokenAmount(token, currentBalance - fee);
+//                       isAlreadyProcessingLookup_.delete(id);
+//                       #ok({ transferSuccess; balanceRecovered });
+//                     };
+//                     case (#err transferErr) {
+//                       isAlreadyProcessingLookup_.delete(id);
+//                       #err({
+//                         kind = #SupportedTokenTransferErr(transferErr);
+//                       });
+//                     };
+//                   };
+//                 };
+//               };
+//             };
+//           };
+//         };
+//       };
+//     };
+//   };
+
+// };
 
 };
