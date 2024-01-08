@@ -11,9 +11,9 @@ export default defineConfig({
     // include: /src\/.*\.[tj]sx?$/,
     exclude: [],
   },
-  root: 'src/hello_world_frontend/src',
+  root: 'src/ledger_sample_frontend',
   build: {
-    outDir: '../../../dist',
+    outDir: '../../dist',
     emptyOutDir: true
   },
   optimizeDeps: {

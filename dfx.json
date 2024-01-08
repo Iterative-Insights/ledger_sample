@@ -1,12 +1,12 @@
 {
   "canisters": {
-    "hello_world_backend": {
-      "main": "src/hello_world_backend/main.mo",
+    "ledger_sample_backend": {
+      "main": "src/ledger_sample_backend/main.mo",
       "type": "motoko"
     },
-    "hello_world_frontend": {
+    "ledger_sample_frontend": {
       "dependencies": [
-        "hello_world_backend"
+        "ledger_sample_backend"
       ],
       "source": [
         "dist"
