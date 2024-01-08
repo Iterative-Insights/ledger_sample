@@ -9,9 +9,13 @@
         "hello_world_backend"
       ],
       "source": [
-        "src/hello_world_frontend/assets"
+        "dist"
       ],
-      "type": "assets"
+      "frontend": {
+        "entrypoint": "dist/index.html"
+      },
+      "type": "assets",
+      "build": "npm run deploy"
     }
   },
   "defaults": {
