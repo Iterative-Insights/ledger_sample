@@ -72,7 +72,7 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
     icp_index_canister = "qhbym-qaaaa-aaaaa-aaafq-cai";
   };
 
-  let transferFee : Nat64 = 10000;
+  let transferFee : LedgerCanisterInterface.Tokens = { e8s = 10000 };
 
   let Ledger_ICP : LedgerCanisterInterface.LedgerCanister = actor (CANISTER_IDS.icp_ledger_canister);
   let indexCanister : IndexCanisterInterface.IndexCanister = actor (CANISTER_IDS.icp_index_canister);
@@ -209,21 +209,25 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
     };
 
     let now = Time.now();
+    isAlreadyProcessingLookup_.put(caller, now);
     switch (balances.get(caller)) {
       case (?balance) {
-        if (balance < transferFee) {
+        if (balance < transferFee.e8s) {
+          isAlreadyProcessingLookup_.delete(caller);
           return #err("Error: Insufficient funds for fee. The balance is only " # debug_show (balance) # " e8s");
         };
-        isAlreadyProcessingLookup_.put(caller, now);
-        let withdrawAmount = balance - transferFee;
+        
+        let withdrawAmount = balance - transferFee.e8s;
+        //attempt the transfer now
         let res = await Ledger_ICP.transfer({
           memo = 0;
           from_subaccount = null;
           to = Account.accountIdentifier(caller, Account.defaultSubaccount());
           amount = { e8s = withdrawAmount };
-          fee = { e8s = transferFee };
+          fee = { e8s = transferFee.e8s };
           created_at_time = ?{ timestamp_nanos = Nat64.fromNat(Int.abs(now)) };
         });
+        //handle transfer result
         switch (res) {
           case (#Ok(blockIndex)) {
             balances.put(caller, 0);
@@ -311,7 +315,7 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
     amount : LedgerCanisterInterface.Tokens
   ) : async Result.Result<Nat, Text> {
 
-    if (amount.e8s < transferFee) {
+    if (amount.e8s < transferFee.e8s) {
       return #err("Error: Amount less than transfer fee of 10000 e8s:" # debug_show (amount));
     };
 
@@ -329,12 +333,13 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
     let canisterAccountIdentifier = Account.accountIdentifier(canisterPrincipal, Account.defaultSubaccount()); // Convert the canister's principal to an account identifier
     var blockIndex : Nat = 0;
 
-    // Define an inner function to handle the operation and cleanup
+    // Define an inner function to handle the transfer, verification and cleanup
     let performDeposit = func() : async Result.Result<Nat, Text> {
+      //Perform the transfer
       let transferResponse = await Ledger_ICP.transfer({
         to = canisterAccountIdentifier;
-        amount = amount;
-        fee = { e8s = transferFee };
+        amount = { e8s = amount.e8s };
+        fee = { e8s = transferFee.e8s };
         memo = transactionIdNat64;
         from_subaccount = null;
         created_at_time = ?{ timestamp_nanos = Nat64.fromNat(Int.abs(now)) };
@@ -352,9 +357,10 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
         case _ {}; // No need to handle error here, as it would have already been returned
       };
 
-      //Confirm that the transfer happened by verifying transactionIdNat64 = memo
-      //in that block
-      let queryBlocksResult : Result.Result<Nat, Text> = await verifyDepositWithLedger(caller, blockIndex, amount.e8s, transactionIdNat64);
+      //Check transfer by verifying transactionIdNat64 = memo in that block
+      let queryBlocksResult : Result.Result<Nat, Text> = await 
+        verifyDepositWithLedger(
+          caller, blockIndex, amount.e8s, transactionIdNat64);
       //for balances kept track in the canister we subtract the transfer fee
       //required to send the balance back.  Should we do this?
       balances.put(caller, amount.e8s);
@@ -387,7 +393,7 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
         // A transaction with the same ID already exists, this indicates a double-spending attempt
         isAlreadyProcessingLookup_.delete(caller);
         return #err("A transaction with the same ID already exists,
-          indicating a double-spending attempt");
+          indicating a double credit attempt");
       };
 
       // Add the transaction to the log
@@ -473,7 +479,7 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
             return #err("Invalid recipient. The 'to' field: " # debug_show (to) # " should be the canister id: " # debug_show (canisterId));
           };
           // Check if fee is 10000
-          if (fee != { e8s = transferFee }) {
+          if (fee != { e8s = transferFee.e8s }) {
             return #err("Invalid fee. The fee should be 10000.");
           };
 
@@ -484,7 +490,7 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
 
           // Check if 'amount' is the same as the amount passed in
           if (transferAmount.e8s != amount) {
-            return #err("Invalid amount. The 'amount' field should be the same as the amount passed in.");
+            return #err("Invalid amount. The 'amount' being verified should be the same as the amount in the ledger.");
           };
           //if all checks pass, return the blockIndex of the confirmed deposit
           return #ok(blockIndex);
