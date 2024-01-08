@@ -4,62 +4,99 @@
 
 THIS IS A WORK IN PROGRESS, NOT ALL FUNCTIONALITY IS THERE YET.
 
-This Motoko project provides a ledger sample on the Internet Computer. It includes several public functions that allow you to interact with the ledger. Here's an overview of the available public functions:
+The main.mo file appears to be a Motoko module for the DFINITY Internet Computer platform, implementing backend logic for a ledger or wallet service. Here's a summary of its functionality:
 
-1. getLedgerId: This function returns the ledger's canister ID.
+- Pre-upgrade Handling: It includes a preupgrade function to save the state of the balances map to a stable variable before a canister upgrade.
 
-2. getStatus: This function returns the status of the ledger, including the number of blocks synced.
+- Transaction Management: It defines a TransactionType and TransactionInfo to track deposits and withdrawals, with a stable transactionLog map to record transactions.
 
-3. getAccountIdentifierBalance: This function takes an account identifier as input and returns the balance of the account.
+- Canister Interfaces: It references mainnet canister IDs for interacting with the ICP ledger and index canisters, and defines functions to interact with these external services, such as retrieving ledger IDs, statuses, balances, and transactions.
 
-4. getAccountIdentifierTransactions: This function takes an object with max_results, start, and account_identifier as input and returns the transactions of the account.
+- Account and Balance Utilities: It provides utility functions to encode and decode account identifiers, and to retrieve balances and transactions based on account identifiers or principals.
 
-5. getAccountTransactions: This function takes an object with account, start, and max_results as input and returns the transactions of the account.
+- Balance Operations: It includes functions to get the balance of the caller, installer, and canister, as well as to perform balance checks and retrieve all balances.
 
-6. greet: This function takes a name as input and returns a greeting message.
+- Transaction Counter: It maintains a transactionCounter to assign unique IDs to transactions.
 
-7. getCallerPrincipalAndAccountId: This function returns the caller's principal and account ID.
+- Concurrency Control: It uses a HashMap to prevent concurrent operations by the same principal with a timeout mechanism.
 
-8. getInstallerPrincipalAndAccountId: This function returns the installer's principal and account ID.
+- Deposit and Withdrawal: It implements functions to deposit and withdraw ICP tokens, including fee handling, transaction verification, and balance updates.
 
-9. getCanisterPrincipalAndAccountId: This function returns the canister's principal and account ID.
+- Error Handling: It has comprehensive error handling for various operations, including ledger interactions and balance checks.
 
-10. getBalanceByAccount: This function takes an object with accountIdentifier as input and returns the balance of the account.
+- Verification Functions: It contains functions to verify deposits with the ledger by checking block information and transaction memos.
 
-11. getBalanceByPrincipal: This function takes an object with principal as input and returns the balance of the account.
+Overall, the main.mo file is a comprehensive backend module for managing a ledger-like system on the Internet Computer, with a focus on handling ICP token transactions, maintaining balances, and interacting with the ICP ledger and index canisters.
 
-12. getCanisterBalance: This function returns the balance of the canister.
+## Installing Frontend Project Dependencies with NPM
 
-13. get_caller_balance: This function takes an object with token as input and returns the balance of the caller.
+Installing node will get you npm.  Best way to install node is to use nvm (node version manager).
 
-14. reclaimICP: This function allows the caller to reclaim their ICP.
+## Install nvm
+```     
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
+```
+After setting your PATH, install node using nvm:
+```
+nvm install node
+```
+Then set the version to use, e.g.,:
+```
+nvm use v21.4.0
+```
 
-15. depositICP: This function takes an amount as input and deposits the amount into the caller's account.
+Then confirm that both are installed properly by running ```node -v``` and ```npm -v```
 
-16. checkBalance: This function returns the balance of the caller.
+Then you can run ```npm install``` to install all dependencies from the package.json
 
-17. getAllBalances: This function returns all balances.
-
-Please note that the actual functionality of these functions depends on the implementation in the code.
-
-## Building with Vessel
+## Building with Vessel (Backend Motoko dependencies)
 
 [Vessel](https://github.com/dfinity/vessel) is a package manager for the Motoko programming language, which is used to develop canisters for the Internet Computer.
 
 On Ubuntu 22.04, use Vessel 0.7.0
+
 On Ubuntu 20.04, use Vessel 0.6.4
 
 Then run 
 ```
 vessel sources
 ```
-To build the dependencies before opening the project in Visual Studio.
+To build the motoko dependencies before opening the project in Visual Studio.
+
+## Using Vite for Front End Development
+
+This project utilizes [Vite](https://vitejs.dev/) for an optimized development experience. Vite serves as a build tool that significantly improves the frontend development workflow by providing features like:
+
+- Fast Hot Module Replacement (HMR)
+- Out-of-the-box support for TypeScript, JSX, CSS and more
+- Efficient bundling for production
+
+To install Vite, run the following from the project directory:
+```
+npm install vite --save-dev
+```
+To start the development server with Vite, run:
+```
+npm run dev
+```
+
+This command will compile and bundle your frontend assets quickly, allowing you to see changes in real-time.
+
+For building the production version of your frontend, use:
+
+```
+npm run build
+```
+
+Vite will create a production-ready bundle in the project root `dist` directory, optimized for the best performance.
 
 Running 
 ```
 dfx deploy --network ic
 ```
-Will deploy the project to mainnet.  Each canister will need about 3T cycles.
+Will deploy the project to mainnet.  Each canister will need about 3T cycles on first deployment.
+It runs the build target ```npm run deploy``` defined in the dfx.json, which runs the deploy target
+```npm install && npm run build``` in the package.json, and ```npm run build``` runs ```vite build```. 
 
 ## Contributing
 
