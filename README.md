@@ -4,31 +4,41 @@
 
 THIS IS A WORK IN PROGRESS, NOT ALL FUNCTIONALITY IS THERE YET.
 
-The main.mo file is a Motoko module for the DFINITY Internet Computer platform, implementing backend logic that allows deposits and withdraws from a canister by interacting with the ICP ledger. 
+## Ledger Sample Backend
 
-Here's a summary of its functionality:
+The main.mo file is the main entry point for a Motoko-based backend application that interacts with the Internet Computer's ledger canister. It provides functionalities for managing and querying account balances, performing transactions, and interacting with the ledger canister.
 
-- Pre-upgrade Handling: It includes a preupgrade function to save the state of the balances map to a stable variable before a canister upgrade.
+Key Features
 
-- Transaction Management: It defines a TransactionType and TransactionInfo to track deposits and withdrawals, with a stable transactionLog map to record transactions.
+1. Account Management: The application maintains a map of account balances for each principal. It provides functions to get the balance of an account, check the balance of the caller, and get all balances.
 
-- Canister Interfaces: It references mainnet canister IDs for interacting with the ICP ledger and index canisters, and defines functions to interact with these external services, such as retrieving ledger IDs, statuses, balances, and transactions.
+2. Transaction Management: The application supports deposit and withdrawal transactions. It maintains a transaction log and a transaction counter. It also provides a function to reclaim ICP.
 
-- Account and Balance Utilities: It provides utility functions to encode and decode account identifiers, and to retrieve balances and transactions based on account identifiers or principals.
+3. Interactions with Ledger Canister: The application interacts with the ledger canister to perform transactions and query blocks. It also verifies deposits with the ledger.
 
-- Balance Operations: It includes functions to get the balance of the caller, installer, and canister, as well as to perform balance checks and retrieve all balances.
+4. Principal and Account ID Retrieval: The application provides functions to get the principal and account ID of the caller, the installer, and the canister.
 
-- Transaction Counter: It maintains a transactionCounter to assign unique IDs to transactions.
+5. Concurrency Control: The application uses a lock lookup map to synchronize principal actions against the canister.
+Key Data Structures
 
-- Concurrency Control: It uses a HashMap to prevent concurrent operations by the same principal with a timeout mechanism.
+1. balances: A stable map that stores the balance of each principal.
+2. transactionLog: A stable map that stores the transaction log.
+3. isAlreadyProcessingLookup_: A map that stores the processing status of each principal.
 
-- Deposit and Withdrawal: It implements functions to deposit and withdraw ICP tokens, including fee handling, transaction verification, and balance updates.
+Key Functions
 
-- Error Handling: It has comprehensive error handling for various operations, including ledger interactions and balance checks.
+1. getBalanceByAccount: Gets the balance of an account.
+2. deposit_icp: Deposits a given amount of ICP.
+3. reclaimICP: Reclaims ICP.
+4. notifyDeposit: Notifies the application of a deposit.
+5. verifyDepositWithLedger: Verifies a deposit with the ledger canister.
+6. get_caller_balance: Gets the balance of the caller.
+7. getCanisterBalance: Gets the balance of the canister.
+8. getCallerPrincipalAndAccountId: Gets the principal and account ID of the caller.
+9. getInstallerPrincipalAndAccountId: Gets the principal and account ID of the installer.
+10. getCanisterPrincipalAndAccountId: Gets the principal and account ID of the canister.
 
-- Verification Functions: It contains functions to verify deposits with the ledger by checking block information and transaction memos.
-
-Overall, the main.mo file is a comprehensive backend module for managing a ledger-like system on the Internet Computer, with a focus on handling ICP token transactions, maintaining balances, and interacting with the ICP ledger and index canisters.
+Please note that this is a simplified summary and the actual code contains more details and functionalities.
 
 ## Package Manager Overview
 
