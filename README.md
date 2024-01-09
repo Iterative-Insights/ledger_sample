@@ -2,7 +2,11 @@
 
 ## Description
 
-THIS IS A WORK IN PROGRESS, NOT ALL FUNCTIONALITY IS THERE YET.
+Sample project demonstrating intercanister calls to the mainnet ICP ledger, written in Motoko for the backend canister and Typescript for the front-end client.
+The backend utilizes a lock in a stable map to prevent concurrency issues with double-credits/withdrawals.
+The backend canister also maintains its own stable balance of deposits from users so that withdrawals can be tracked properly.
+
+THIS IS A WORK IN PROGRESS.
 
 ## Ledger Sample Backend
 

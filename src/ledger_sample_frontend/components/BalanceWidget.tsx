@@ -1,9 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Actor, HttpAgent } from '@dfinity/agent';
 import { ledger_sample_backend} from '../../declarations/ledger_sample_backend';
 import { GetCallerBalanceResult } from '../../declarations/ledger_sample_backend/ledger_sample_backend.did';
-
-const agent = new HttpAgent();
 
 const BalanceWidget = () => {
   const [balance, setBalance] = useState('Loading balance...');
