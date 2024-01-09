@@ -1,6 +1,10 @@
 import React from 'react';
 
-const ReclaimWidget = ({ onReclaim }) => {
+interface ReclaimWidgetProps {
+  onReclaim: () => Promise<void>;
+}
+
+const ReclaimWidget : React.FC<ReclaimWidgetProps> = ({ onReclaim }) => {
   const handleReclaim = async () => {
     await onReclaim();
   };

@@ -5,9 +5,10 @@ import BalanceWidget from './components/BalanceWidget';
 
 const App = () => {
   // These functions would be implemented to interact with your backend
-  const depositICP = async (amount) => {
-    console.log('Depositing ICP:', amount);
-    // Call backend method to deposit ICP
+  const depositICP = async (amount: string) => {
+    const numericAmount = Number(amount);
+    console.log('Depositing ICP:', numericAmount);
+    // Call backend method to deposit ICP with numericAmount
   };
 
   const reclaimICP = async () => {
@@ -25,7 +26,7 @@ const App = () => {
     <div>
       <DepositWidget onDeposit={depositICP} />
       <ReclaimWidget onReclaim={reclaimICP} />
-      <BalanceWidget getBalance={getBalance} />
+      <BalanceWidget />
     </div>
   );
 };

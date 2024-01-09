@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 
-const DepositWidget = ({ onDeposit }) => {
+interface DepositWidgetProps {
+  onDeposit: (amount: string) => Promise<void>;
+}
+
+
+const DepositWidget : React.FC<DepositWidgetProps> = ({ onDeposit }) => {
   const [amount, setAmount] = useState('');
 
   const handleDeposit = async () => {
