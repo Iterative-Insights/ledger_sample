@@ -33,34 +33,21 @@ import XorShift "mo:rand/XorShift";
 
 import Map "mo:map/Map";
 import { nhash } "mo:map/Map";
+import { phash } "mo:map/Map";
 
 // set installer_ Principal when this canister is first installed
 shared ({ caller = installer_ }) actor class LedgerSample() = this {
-  stable var balancesStable : [(Principal, Nat64)] = [];
-  // Convert stable variable to HashMap on actor initialization
-  // (restore map after upgrade)
-  let balances : HashMap.HashMap<Principal, Nat64> = HashMap.fromIter<Principal, Nat64>(
-    Iter.fromArray(balancesStable),
-    balancesStable.size(),
-    Principal.equal,
-    Principal.hash,
-  );
-
-  //before every upgrade, save off the balances map into the stable variable
-  system func preupgrade() {
-    let iter = balances.entries();
-    balancesStable := Iter.toArray(iter);
-  };
-
+  stable var balances : Map.Map<Principal, Nat64> = Map.new<Principal, Nat64>();
+  
   type TransactionType = { #Deposit; #Withdrawal };
   type TransactionInfo = { txType : TransactionType; processed : Bool };
   //This map is actually from https://github.com/ZhenyaUsenko/motoko-hash-map
-  //and is stable
-  //also see https://forum.dfinity.org/t/map-v8-0-0-its-finally-here/18962/21
+  //and supports stable
+  //see https://forum.dfinity.org/t/map-v8-0-0-its-finally-here/18962/21 for details  
   //the key is from the transactionId that gets incremented automatically
   //for each new transaction, and is passed to the memo field when calling
   //ledger transfer.  the boolean within TransactionInfo is true if
-  //the transaction has been processed
+  //the transaction has been processed in the mainnet ledger
   //a transaction can mean a deposit transaction into the canister, or
   //a withdrawal from the canister
   stable var transactionLog : Map.Map<Nat, TransactionInfo> = 
@@ -210,7 +197,8 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
 
     let now = Time.now();
     isAlreadyProcessingLookup_.put(caller, now);
-    switch (balances.get(caller)) {
+    let balance = Map.get(balances, phash, caller);
+    switch (balance) {
       case (?balance) {
         if (balance < transferFee.e8s) {
           isAlreadyProcessingLookup_.delete(caller);
@@ -230,7 +218,7 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
         //handle transfer result
         switch (res) {
           case (#Ok(blockIndex)) {
-            balances.put(caller, 0);
+            Map.set(balances, phash, caller, 0 : Nat64);
             isAlreadyProcessingLookup_.delete(caller);
             return #ok("Reclaimed: " # debug_show (withdrawAmount) # " e8s ICP for " # Principal.toText(caller) # " in block " # Nat64.toText(blockIndex));
           };
@@ -252,17 +240,18 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
   };
 
   public shared ({ caller }) func checkCallerBalanceInCanister() : async Text {
-    let balance = switch (balances.get(caller)) {
+    let balance = Map.get(balances, phash, caller);
+    let balanceText = switch (balance) {
       case (?balance) Nat64.toText(balance);
       case null "0";
     };
     return "Caller's ID: " # Principal.toText(caller) #
     ", Canister's ID: " # Principal.toText(getCanisterPrincipalId()) #
-    ", Balance: " # balance;
+    ", Balance: " # balanceText;
   };
 
   public query func getAllBalances() : async [(Principal, Nat64)] {
-    let iter = balances.entries();
+    let iter = Map.entries(balances);
     return Iter.toArray(iter);
   };
 
@@ -363,7 +352,7 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
           caller, blockIndex, amount.e8s, transactionIdNat64);
       //for balances kept track in the canister we subtract the transfer fee
       //required to send the balance back.  Should we do this?
-      balances.put(caller, amount.e8s);
+      Map.set(balances, phash, caller, amount.e8s);
       isAlreadyProcessingLookup_.delete(caller);
       return #ok(transactionId);
     };
@@ -407,12 +396,12 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
         case (#ok(blockIndex)) {
           // Verify the transaction with the ledger canister
           // Update the balance map with the deposit amount
-          let currentBalance = balances.get(caller);
+          let currentBalance = Map.get(balances, phash, (caller));
           let newBalance = switch (currentBalance) {
             case (null) amount; // If currentBalance is null, use amount as the new balance
             case (?balance) balance + amount; // If currentBalance has a value, add amount to it
           };
-          balances.put(caller, newBalance);
+          Map.set(balances, phash, caller, newBalance);
           let updatedTxInfo : TransactionInfo = { txType = txInfo.txType; processed = true };
           addTransactionToLog(transactionId, updatedTxInfo); // Update the transaction log
           isAlreadyProcessingLookup_.delete(caller);
@@ -427,7 +416,8 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
   };
   
   func doesTransactionExist(transactionId: Nat): Bool {
-    switch (transactionLog.get(transactionId)) {
+    // switch (transactionLog.get(transactionId)) {
+      switch (Map.get(transactionLog, nhash, transactionId)) {
       case null { false };
       case _ { true };
     };
