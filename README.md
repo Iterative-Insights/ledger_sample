@@ -4,7 +4,9 @@
 
 THIS IS A WORK IN PROGRESS, NOT ALL FUNCTIONALITY IS THERE YET.
 
-The main.mo file appears to be a Motoko module for the DFINITY Internet Computer platform, implementing backend logic for a ledger or wallet service. Here's a summary of its functionality:
+The main.mo file is a Motoko module for the DFINITY Internet Computer platform, implementing backend logic that allows deposits and withdraws from a canister by interacting with the ICP ledger. 
+
+Here's a summary of its functionality:
 
 - Pre-upgrade Handling: It includes a preupgrade function to save the state of the balances map to a stable variable before a canister upgrade.
 
@@ -27,6 +29,50 @@ The main.mo file appears to be a Motoko module for the DFINITY Internet Computer
 - Verification Functions: It contains functions to verify deposits with the ledger by checking block information and transaction memos.
 
 Overall, the main.mo file is a comprehensive backend module for managing a ledger-like system on the Internet Computer, with a focus on handling ICP token transactions, maintaining balances, and interacting with the ICP ledger and index canisters.
+
+## Package Manager Overview
+
+The project leverages a few package managers:
+
+ICP Canisters:
+
+`dfx` (`dfx.json`) is a multipurpose tool for ICP.  We will primarily use it for canister deployment.
+
+In the `dfx.json` file, the `build` key is set to `npm run deploy`. This instructs the DFINITY Canister SDK
+ (`dfx`) to execute the `deploy` script from the `package.json`'s `scripts` section when you run `dfx deploy`.
+The `deploy` script is responsible for preparing your project for deployment. It first runs `npm install` to
+install all the JavaScript dependencies specified in `package.json`. After the dependencies are installed, it 
+executes `npm run build`. This `build` script, defined in `package.json`, triggers `vite build`, which 
+compiles, optimizes, and bundles the frontend assets. These assets are then ready to be deployed with the 
+`ledger_sample_frontend` canister to the Internet Computer.
+
+For canisters serving front-end assets, the files located in the directory defined by the `source` key in 
+`dfx.json` are uploaded as static assets. The `frontend.entrypoint` setting should specify the path to an 
+`index.html` file within this `source` directory. In our project, this directory is set to `dist`, meaning that the `index.html` file in the `dist` folder will be used as the entry point for the front-end canister when deployed.  Files in `dist` have been optimized by `vite`.
+
+
+Backend Motoko:
+
+`vessel` (`vessel.dhall, package-set.dhall`) is a package manager for motoko that helps download the required motoko dependencies such 
+as `mo:map/Map`, which we use for stable hashmap support.
+
+Frontend Javascript:
+
+`vite` (`vite.config.js`) will build and optimize the frontend javascript/html assets for fast loading.
+The assets are specified in the vite.config.js build.
+The build output directory is configured in `vite.config.js` as `outDir: '../../dist'`, which specifies where the production-ready frontend assets will be generated.
+
+`npm` (`package.json`) The `package.json` file serves as the manifest for your JavaScript project. It plays a crucial role in managing the project's dependencies, defining script commands, and storing metadata about the project. Here's a summary of its functionality in the context of this project:
+
+- **Dependency Management**: It lists all the necessary npm packages required for both development and production environments. When you run `npm install`, npm reads this file and installs the versions of the packages specified.
+
+- **Script Shortcuts**: The `scripts` section provides convenient aliases for complex commands. For example, `npm run build` is a shortcut for `vite build`, which compiles your frontend assets for production.
+
+- **Project Configuration**: It can include additional configuration for tools and libraries used in the project, such as Vite, Babel, ESLint, or others.
+
+- **Project Information**: It contains metadata such as the project's name, version, description, repository, license, and author information, which can be important for publishing packages or for documentation purposes.
+
+In this project, `package.json` is configured to work with Vite through the `scripts` section, enabling you to run tasks like building the frontend assets with `npm run build`, which under the hood, calls `vite build`. This integration streamlines your development and build process, ensuring that your frontend assets are prepared correctly for deployment with the `ledger_sample_frontend` canister.
 
 ## Installing Frontend Project Dependencies with NPM
 
@@ -51,16 +97,14 @@ Then you can run ```npm install``` to install all dependencies from the package.
 
 ## Building with Vessel (Backend Motoko dependencies)
 
-[Vessel](https://github.com/dfinity/vessel) is a package manager for the Motoko programming language, which is used to develop canisters for the Internet Computer.
+[vessel](https://github.com/dfinity/vessel) is a package manager for the Motoko programming language, which is used to develop canisters for the Internet Computer.
 
 On Ubuntu 22.04, use Vessel 0.7.0
 
 On Ubuntu 20.04, use Vessel 0.6.4
 
-Then run 
-```
-vessel sources
-```
+Then run `vessel sources`
+
 To build the motoko dependencies before opening the project in Visual Studio.
 
 ## Using Vite for Front End Development
@@ -89,6 +133,8 @@ npm run build
 ```
 
 Vite will create a production-ready bundle in the project root `dist` directory, optimized for the best performance.
+
+## Deploying to ICP Mainnet
 
 Running 
 ```
