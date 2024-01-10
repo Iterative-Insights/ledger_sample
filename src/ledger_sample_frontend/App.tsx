@@ -2,8 +2,38 @@ import React from 'react';
 import DepositWidget from './components/DepositWidget';
 import ReclaimWidget from './components/ReclaimWidget';
 import BalanceWidget from './components/BalanceWidget';
+import { defaultProviders } from "@connect2ic/core/providers"
+import { createClient } from "@connect2ic/core"
+// import { Connect2ICProvider } from "@connect2ic/react"
+import "@connect2ic/core/style.css"
+import * as ledger_sample_backend from "../declarations/ledger_sample_backend"
+import { ConnectButton, ConnectDialog, Connect2ICProvider, useConnect } from "@connect2ic/react"
+
+const client = createClient({
+  canisters: {
+    ledger_sample_backend,
+  },
+  providers: defaultProviders as any,
+  // globalProviderConfig: {
+  //   dev: import.meta.env.DEV,
+  // },
+})
+
+const AppRoot = () => (
+  <Connect2ICProvider client={client}>
+    <App />
+  </Connect2ICProvider>
+)
 
 const App = () => {
+  const { isConnected, principal, activeProvider } = useConnect({
+    onConnect: () => {
+      // Signed in
+    },
+    onDisconnect: () => {
+      // Signed out
+    }
+  })
   // These functions would be implemented to interact with your backend
   const depositICP = async (amount: string) => {
     const numericAmount = Number(amount);
@@ -16,19 +46,15 @@ const App = () => {
     // Call backend method to reclaim ICP
   };
 
-  const getBalance = async () => {
-    console.log('Fetching balance');
-    // Call backend method to get balance
-    return '10'; // Placeholder balance
-  };
-
-  return (
+  return (    
     <div>
       <DepositWidget onDeposit={depositICP} />
       <ReclaimWidget onReclaim={reclaimICP} />
       <BalanceWidget />
-    </div>
+      <ConnectButton />
+      <ConnectDialog dark={false} />
+    </div>      
   );
 };
 
-export default App;
+export default AppRoot;
