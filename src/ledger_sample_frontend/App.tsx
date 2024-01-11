@@ -8,6 +8,8 @@ import { createClient } from "@connect2ic/core"
 import "@connect2ic/core/style.css"
 import * as ledger_sample_backend from "../declarations/ledger_sample_backend"
 import { ConnectButton, ConnectDialog, Connect2ICProvider, useConnect } from "@connect2ic/react"
+import { Transfer } from "./components/Transfer"
+import { Profile } from "./components/Profile"
 import './main.css';
 
 
@@ -57,7 +59,14 @@ const App = () => {
       <ReclaimWidget onReclaim={reclaimICP} />
       <BalanceWidget />      
       <ConnectDialog dark={false} />
-    </div>      
+      <p className="examples-title">
+        Examples
+      </p>
+      <div className="examples">
+        <Profile />
+        <Transfer />
+      </div>  
+    </div>             
   );
 };
 

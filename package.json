@@ -5,6 +5,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "serve": "vite preview",
+    "predeploy": "dfx generate",
     "deploy": "npm install && npm run build"
   },
   "dependencies": {
