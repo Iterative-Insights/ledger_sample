@@ -8,6 +8,8 @@ import { createClient } from "@connect2ic/core"
 import "@connect2ic/core/style.css"
 import * as ledger_sample_backend from "../declarations/ledger_sample_backend"
 import { ConnectButton, ConnectDialog, Connect2ICProvider, useConnect } from "@connect2ic/react"
+import './main.css';
+
 
 const client = createClient({
   canisters: {
@@ -48,10 +50,12 @@ const App = () => {
 
   return (    
     <div>
+      <div className="connect-button-container">
+        <ConnectButton />
+      </div>
       <DepositWidget onDeposit={depositICP} />
       <ReclaimWidget onReclaim={reclaimICP} />
-      <BalanceWidget />
-      <ConnectButton />
+      <BalanceWidget />      
       <ConnectDialog dark={false} />
     </div>      
   );

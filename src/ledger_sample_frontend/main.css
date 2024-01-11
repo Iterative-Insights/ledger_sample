@@ -18,3 +18,10 @@
     opacity: 0.94;
     transform: scale(1.02);
   }
+
+  .connect-button-container {
+    position: absolute;
+    top: 0;
+    right: 0;
+    padding: 10px; /* Adjust padding as needed */
+  }
