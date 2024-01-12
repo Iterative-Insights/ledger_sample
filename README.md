@@ -12,6 +12,8 @@ THIS IS A WORK IN PROGRESS.
 
 The main.mo file is the main entry point for a Motoko-based backend application that interacts with the Internet Computer's ledger canister. It provides functionalities for managing and querying account balances, performing transactions, and interacting with the ledger canister.
 
+Please note that this is a simplified summary and the actual code contains more details and functionalities.
+
 Key Features
 
 1. Account Management: The application maintains a map of account balances for each principal. It provides functions to get the balance of an account, check the balance of the caller, and get all balances.
@@ -23,26 +25,73 @@ Key Features
 4. Principal and Account ID Retrieval: The application provides functions to get the principal and account ID of the caller, the installer, and the canister.
 
 5. Concurrency Control: The application uses a lock lookup map to synchronize principal actions against the canister.
-Key Data Structures
+Key 
 
-1. balances: A stable map that stores the balance of each principal.
+Data Structures
+
+1. deposits: A stable map that stores the deposits of each principal.
 2. transactionLog: A stable map that stores the transaction log.
 3. isAlreadyProcessingLookup_: A map that stores the processing status of each principal.
 
 Key Functions
 
-1. getBalanceByAccount: Gets the balance of an account.
-2. deposit_icp: Deposits a given amount of ICP.
-3. reclaimICP: Reclaims ICP.
-4. notifyDeposit: Notifies the application of a deposit.
-5. verifyDepositWithLedger: Verifies a deposit with the ledger canister.
-6. get_caller_balance: Gets the balance of the caller.
-7. getCanisterBalance: Gets the balance of the canister.
-8. getCallerPrincipalAndAccountId: Gets the principal and account ID of the caller.
-9. getInstallerPrincipalAndAccountId: Gets the principal and account ID of the installer.
-10. getCanisterPrincipalAndAccountId: Gets the principal and account ID of the canister.
+- getAdminPrincipal: Returns the principal ID of the admin.
 
-Please note that this is a simplified summary and the actual code contains more details and functionalities.
+- getLedgerId: Fetches the ledger canister ID from the index canister.
+
+- getStatus: Retrieves the status from the index canister.
+
+- getAccountIdentifierBalance: Gets the balance for a given account identifier from the index canister.
+
+- getAccountIdentifierTransactions: Fetches transactions for a given account identifier from the index canister.
+
+- getAccountTransactions: Retrieves transactions for an account from the index canister.
+
+- getCallerPrincipalAndAccountId: Returns the caller's principal and account ID as a text string.
+
+- getInstallerPrincipalAndAccountId: Returns the installer's principal and account ID as a text string.
+
+- getCanisterPrincipalAndAccountId: Returns the canister's principal and account ID as a text string.
+
+- getCanisterAccountId: Returns the canister's account ID as a text string.
+
+- getCanisterPrincipalId: Returns the principal ID of the canister.
+
+- getBalanceByAccount: Returns the balance for a given account identifier.
+
+- getBalanceByPrincipal: Returns the balance for a given principal.
+
+- getCanisterBalance: Returns the balance of the canister.
+
+- get_caller_balance: Returns the balance of the caller for a specified token.
+
+- reclaimICP: Allows the caller to reclaim ICP tokens by transferring them out of the canister.
+
+- checkCallerBalanceInCanister: Checks and returns the balance of the caller within the canister.
+
+- getAllDeposits: Returns all deposit records as an array of tuples containing principals and their respective balances.
+
+- notifyDeposit: Notifies the canister of a deposit and updates the transaction log and balance map accordingly.
+
+- reclaimICPToAdmin: Allows the admin to reclaim all ICP tokens from the canister to the admin's account.
+
+Additionally, there are several private functions and variables:
+
+- incTransactionCounter: Increments and returns the transaction counter.
+
+- isAlreadyProcessingLookup_: A map to track if a principal is already processing an action to prevent concurrent operations.
+
+- isAlreadyProcessingTimeout_: A timeout value to determine how long a principal's action should be locked.
+
+- isAlreadyProcessing_: Checks if a principal is currently processing an action.
+
+- doesTransactionExist: Checks if a transaction with a given ID already exists in the transaction log.
+
+- addTransactionToLog: Adds a transaction to the transaction log.
+
+- verifyDepositWithLedger: Verifies a deposit with the ledger canister by checking the transaction details in a block.
+
+The file also includes several let bindings for constants and actor references, as well as stable var declarations for persistent data like deposits and transactionLog.
 
 ## Package Manager Overview
 
