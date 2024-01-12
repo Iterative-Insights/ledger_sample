@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ledger_sample_backend} from '../../declarations/ledger_sample_backend';
 import { GetCallerBalanceResult } from '../../declarations/ledger_sample_backend/ledger_sample_backend.did';
 
-const BalanceWidget = () => {
+const CanisterBalanceWidget = () => {
   const [balance, setBalance] = useState('Loading balance...');
   const [isFetching, setIsFetching] = useState(false); // State to track if fetching is in progress
 
@@ -28,7 +28,7 @@ const BalanceWidget = () => {
 
   return (
     <div>
-      <h2>Canister Current Balance</h2>
+      <h3>Canister ICP Balance</h3>
       <p>{isFetching ? 'Refreshing...' : `${balance} e8s ICP`}</p> {/* Change the display conditionally */}
       <button onClick={fetchBalance} disabled={isFetching}>
         {isFetching ? 'Refreshing...' : 'Refresh Balance'}
@@ -37,4 +37,4 @@ const BalanceWidget = () => {
   );
 };
 
-export default BalanceWidget;
+export default CanisterBalanceWidget;

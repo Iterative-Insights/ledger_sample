@@ -10,7 +10,7 @@ const Profile = () => {
     <div className="example">
       {wallet ? (
         <>
-          <p>Wallet address: <span style={{ fontSize: "0.7em" }}>{wallet ? wallet.principal : "-"}</span></p>
+          <p>Wallet address: {wallet ? wallet.principal : "-"}</p>
           <table>
             <tbody>
             {assets && assets.map(asset => (
