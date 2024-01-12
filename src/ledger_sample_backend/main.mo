@@ -525,7 +525,7 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
 
   public shared ({ caller }) func reclaimICPToAdmin() : async Result.Result<Text, Text> {
     if (caller != adminPrincipal) {
-      return #err("Unauthorized: Only the admin can reclaim ICP.");
+      return #err("Unauthorized: Only the admin can call reclaimICPToAdmin.");
     };
 
     let canisterAccountId = Account.accountIdentifier(Principal.fromActor(this), Account.defaultSubaccount());

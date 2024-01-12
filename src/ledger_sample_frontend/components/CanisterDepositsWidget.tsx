@@ -43,7 +43,7 @@ const CanisterDepositsWidget: React.FC = () => {
 
   return (
     <div className="balances-widget">
-      <h3>Canister Balances</h3>
+      <h3>Canister Deposits by Principal, in e8s</h3>
       <button onClick={fetchBalances}>Refresh Balances</button>
       <ul>
         {balances.map((record, index) => (
