@@ -149,12 +149,20 @@ npm run build
 Vite will create a production-ready bundle in the project root `dist` directory, optimized for the best performance.
 
 ## Deploying to ICP Mainnet
+Adjust the principal in the main.mo to your admin principal to emergency reclaim ICP deposited to the canister:
+
+```
+let adminPrincipal : Principal = Principal.fromText(
+    "tyvr4-pols6-lvf2i-j5cp3-k5zs4-gmsp4-r2pvr-teogk-hj3jg-issib-yqe"
+  );
+```
 
 Running 
 ```
 dfx deploy --network ic
 ```
-Will deploy the project to mainnet.  Each canister will need about 3T cycles on first deployment.
+Will deploy the project to mainnet.  Each canister will need about 3T cycles on first deployment (allow 7T cycles
+to deploy the sample code).
 It runs the build target ```npm run deploy``` defined in the dfx.json, which runs the deploy target
 ```npm install && npm run build``` in the package.json, and ```npm run build``` runs ```vite build```. 
 
