@@ -43,8 +43,9 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
   stable var deposits : Map.Map<Principal, Nat64> = Map.new<Principal, Nat64>();
 
   public shared ({ caller }) func clearAllDeposits() : async Result.Result<Text, Text> {
+    //should this participate in locking?
     if (caller != adminPrincipal) {
-      return #err("Unauthorized: Only the admin can call reclaimICPToAdmin.");
+      return #err("Unauthorized: Only the admin can call clearAllDeposits().");
     };
     deposits := Map.new<Principal, Nat64>();
     // Optionally, you can return a confirmation message or a result
