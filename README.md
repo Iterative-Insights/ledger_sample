@@ -86,8 +86,6 @@ an emergency reclaim function for the admin.
 map.  The transaction log uses the block height of the transaction as the transaction id.
 This is possible as the ICP ledger uses 1 block per transaction.  See https://mmapped.blog/posts/13-icp-ledger#transactions-and-blocks for details.
 
-Key 
-
 Data Structures
 
 1. deposits: A stable map that stores the deposits of each principal.
