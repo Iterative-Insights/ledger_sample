@@ -10,7 +10,7 @@ connect2ic is used for multi-wallet support.  If you know a better alternative p
 
 ## Getting Started
 
-Follow these instructions to set up the project locally. This guide assumes you are using a Unix-like operating system such as Linux or macOS.
+Follow these instructions to set up the project on mainnet. This guide assumes you are using a Unix-like operating system such as Linux or macOS.
 
 ### Prerequisites
 
@@ -152,7 +152,7 @@ Additionally, there are several private functions and variables:
 
 The file also includes several let bindings for constants and actor references, as well as stable var declarations for persistent data like deposits and transactionLog.
 
-## Package Manager Overview
+## Detailed Instructions and Explanation
 
 The project leverages a few package managers:
 
