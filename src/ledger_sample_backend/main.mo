@@ -276,14 +276,7 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
     let iter = Map.entries(deposits);
     return Iter.toArray(iter);
   };
-
-  stable var transactionCounter : Nat = 0;
-
-  func incTransactionCounter() : Nat {
-    transactionCounter += 1;
-    return transactionCounter;
-  };
-
+  
   // Lock lookup map to synchronize Principal actions against the canister
   let isAlreadyProcessingLookup_ : HashMap.HashMap<Principal, Time.Time> = HashMap.HashMap<Principal, Time.Time>(0, Principal.equal, Principal.hash);
   let isAlreadyProcessingTimeout_ : Nat = 600_000_000_000; // "10 minutes ns"
@@ -322,6 +315,9 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
       return #err("isAlreadyProcessing_: " # debug_show (caller));
     } else {
       isAlreadyProcessingLookup_.put(caller, Time.now());
+      //use blockIndex as the transactionId
+      //in ICP each block contains only 1 transaction.
+      //See https://mmapped.blog/posts/13-icp-ledger#transactions-and-blocks
       let transactionId = blockIndex; //can't pass my own memo from wallet transfer, use blockIndex
 
       if (doesTransactionExist(transactionId)) {
