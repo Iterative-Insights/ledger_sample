@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react"
 import { useWallet, useTransfer, useCanister } from "@connect2ic/react"
 import { ledger_sample_backend } from "../../declarations/ledger_sample_backend"; // Adjust the import path as necessary
+import { Result_1 } from "../../declarations/ledger_sample_backend/ledger_sample_backend.did";
 
 const DepositToCanister = () => {
 
@@ -21,40 +22,65 @@ const DepositToCanister = () => {
         fetchCanisterAccount();
     }, []);
 
-    const [transfer, { error: useTransferError }] = useTransfer({
+    const [transfer, { loading, error: useTransferError }] = useTransfer({
         to: canisterAccount,
         amount: Number(amount),
     });
 
-    const onPurchase = async () => {
-        if (amount > 0) {
-            let transferResult;
-            let retries = 0;
-            const maxRetries = 5; // Set the maximum number of retries
-    
-            while (retries < maxRetries) {
-                try {
-                    transferResult = await transfer();
-                    if (transferResult?.height) {
-                        console.log("height: ", transferResult.height);
-                        console.log("icpToE8s(amount): ", icpToE8s(amount));
-                        const notifyResult = await authenticatedLedgerBackend.notifyDeposit(
-                            transferResult.height, icpToE8s(amount)
-                        );
-                        console.log("Notify result: ", notifyResult);
+
+    const maxRetries = 5;
+    let retryCount = 0;
+    let delay = 2000;
+    let success = false;
+
+    const pollForBlockHeight = async () => {
+        while (retryCount < maxRetries && !success) {
+            try {
+                const transferResult = await transfer();
+                if (transferResult?.height) {
+                    console.log("height: ", transferResult.height);
+                    console.log("icpToE8s(amount): ", icpToE8s(amount));
+                    const notifyResult = await authenticatedLedgerBackend.notifyDeposit(
+                        transferResult.height, icpToE8s(amount)
+                    ) as Result_1;
+                    if ('ok' in notifyResult) {
+                        console.log("Success on notify: ", notifyResult);
+                        success = true;
                         break; // Exit the loop if height is received
-                    }
-                } catch (error) {
-                    console.error("Error during transfer or notifyDeposit: ", error);
+                    } else {
+                        console.log("Non ok Notify result: ", notifyResult);
+                    }                    
                 }
-                retries++;
-                // Wait for the loading state to change before retrying
-                while (useTransferError) {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                }
+            } catch (error) {
+                console.error("Error during transfer attempt:", error);
+                retryCount++;
+                console.log(`Retrying transfer... (${retryCount}/${maxRetries})`);
+                // Wait for a delay before retrying
+                await new Promise(resolve => setTimeout(resolve, delay));
+                delay *= 2; // Optionally implement exponential backoff
+            }
+            if (useTransferError) {
+                console.error('Transfer error:', useTransferError);
+                // Handle the transfer error, e.g., display an error message to the user
             }
         }
+        if (!success) {
+            throw new Error("Failed to obtain a valid block height after maximum retries.");
+        }
     };
+
+    // Usage of pollForBlockHeight
+    const onDeposit = async () => {
+        try {
+            console.log("called onDeposit, waiting for pollForBlockHeight");
+            const blockHeight = await pollForBlockHeight();
+            // Proceed with the block height
+        } catch (error) {
+            // Handle the case where a valid block height was not obtained
+            console.error(error);
+        }
+    };
+
 
     return (
         <div className="deposit-to-canister-widget">
@@ -69,13 +95,13 @@ const DepositToCanister = () => {
                         placeholder="Amount ICP"
                         step="0.0001"
                     />
-                    <button className="connect-button" onClick={onPurchase}>Deposit to Canister</button>
+                    <button className="connect-button" onClick={onDeposit} disabled={loading}>Deposit to Canister</button>
                 </>
             ) : (
                 <p className="deposit-to-canister-widget-disabled">Connect with a wallet to access this example</p>
             )}
         </div>
-    );    
+    );
 };
 
 export { DepositToCanister }
