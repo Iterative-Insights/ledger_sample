@@ -27,7 +27,7 @@ Follow these instructions to set up the project on mainnet. This guide assumes y
 `nvm install node`
 
 3. Set the version of Node.js to use:
-`nvm use node`
+`nvm use node v21.4.0`
 
 
 ### Installing Frontend Dependencies
