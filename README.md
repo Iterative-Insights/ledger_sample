@@ -4,9 +4,66 @@
 
 Sample project demonstrating intercanister calls to the mainnet ICP ledger, written in Motoko for the backend canister and Typescript for the front-end client.  
 The backend utilizes a lock in a stable map to prevent concurrency issues with double-credits/withdrawals.
-The backend canister also maintains its own stable balance of deposits from users so that withdrawals can be tracked properly.
+The backend canister also maintains its own stable balance of deposits from users so withdrawals can be tracked properly.
 
 connect2ic is used for multi-wallet support.  If you know a better alternative please reach out to aug@iterative.day
+
+## Getting Started
+
+Follow these instructions to set up the project locally. This guide assumes you are using a Unix-like operating system such as Linux or macOS.
+
+### Prerequisites
+
+- Install [Node.js](https://nodejs.org/) which includes [npm](https://npmjs.com/).
+- Install [Vessel](https://github.com/dfinity/vessel) for Motoko package management.
+- Install [DFINITY Canister SDK](https://sdk.dfinity.org/docs/quickstart/local-quickstart.html) (`dfx`).
+
+### Installing Node and NPM
+
+1. Install `nvm` (Node Version Manager):
+`curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash`
+
+2. Install Node.js using `nvm`:
+`nvm install node`
+
+3. Set the version of Node.js to use:
+`nvm use node`
+
+
+### Installing Frontend Dependencies
+```
+cd ledger_sample
+npm install
+```
+
+### Building with Vessel (Backend Motoko Dependencies)
+
+1. Ensure you have the correct version of Vessel installed for your OS.
+2. Run `vessel sources` to fetch the Motoko dependencies.
+
+### Using Vite for Frontend Development
+
+1. Install Vite if it's not already installed:
+`npm install vite --save-dev
+
+## Preparing for Deployment
+
+Before deploying to the IC mainnet, it's crucial to run the `dfx generate` command. This command generates the canister interface definitions, which are required for your canisters to interact with each other and with the IC system:
+
+`dfx generate`
+
+Make sure to execute this command after you've made any changes to your canister's interface and before you deploy. This ensures that the latest interface changes are accurately reflected and that your canisters will communicate effectively once deployed to the mainnet.
+
+### Deploying to ICP Mainnet
+
+1. Update the `main.mo` file with your admin principal.
+2. [Get free cycles for deployment](https://internetcomputer.org/docs/current/developer-docs/setup/cycles/cycles-faucet)
+3. Deploy the project to the Internet Computer mainnet:
+
+`dfx deploy --network ic`
+
+After following these steps, your project should be up and running on ICP mainnet.  [You can also deploy to motoko playground (a quasi testnet) for free without cycles](https://internetcomputer.org/docs/current/developer-docs/setup/playground) but the canisters get automatically removed after 5-10 minutes if not used, which is not good if the canister has ICP deposited.
+
 
 ## Ledger Sample Backend
 
@@ -174,11 +231,7 @@ To build the motoko dependencies before opening the project in Visual Studio.
 
 ## Using Vite for Front End Development
 
-This project utilizes [Vite](https://vitejs.dev/) for an optimized development experience. Vite serves as a build tool that significantly improves the frontend development workflow by providing features like:
-
-- Fast Hot Module Replacement (HMR)
-- Out-of-the-box support for TypeScript, JSX, CSS and more
-- Efficient bundling for production
+This project utilizes [Vite](https://vitejs.dev/) for packaging and optimizing the front end assets.
 
 To install Vite, run the following from the project directory:
 ```
@@ -189,7 +242,8 @@ To start the development server with Vite, run:
 npm run dev
 ```
 
-This command will compile and bundle your frontend assets quickly, allowing you to see changes in real-time.
+This command will compile and bundle your frontend assets quickly, allowing you to see front end changes in real-time.  The buttons will not work though, only deploying to mainnet
+will have working buttons in the front end.
 
 For building the production version of your frontend, use:
 
@@ -200,7 +254,7 @@ npm run build
 Vite will create a production-ready bundle in the project root `dist` directory, optimized for the best performance.
 
 ## Deploying to ICP Mainnet
-Adjust the principal in the main.mo to your admin principal to emergency reclaim ICP deposited to the canister:
+You MUST change the principal in the main.mo to your admin principal which can emergency reclaim ICP deposited to the canister:
 
 ```
 let adminPrincipal : Principal = Principal.fromText(
@@ -221,6 +275,7 @@ It runs the build target ```npm run deploy``` defined in the dfx.json, which run
 
 We welcome contributions to this project. Please see our [Contributing Guide](CONTRIBUTING.md) for more details.
 
+
 ## License
 
-This project is licensed under the [insert license]. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
