@@ -3,12 +3,21 @@ import { useWallet, useTransfer, useCanister } from "@connect2ic/react"
 import { ledger_sample_backend } from "../../declarations/ledger_sample_backend"; // Adjust the import path as necessary
 import { Result_1 } from "../../declarations/ledger_sample_backend/ledger_sample_backend.did";
 
-const DepositToCanister = () => {
+interface DepositToCanisterProps {
+    afterDeposit: (status: 'success' | 'error', details: any) => void;
+    afterNotify: (status: 'success' | 'error', details: any) => void;
+}
+
+
+const DepositToCanister: React.FC<DepositToCanisterProps> = ({ 
+    afterDeposit, afterNotify }) => {
 
     const [wallet] = useWallet()
     const [amount, setAmount] = useState(0.0001); // Default amount or could be empty string ''
     const [canisterAccount, setCanisterAccount] = useState('');
-    const [authenticatedLedgerBackend, { error, loading: ledgerBackendLoading }] = useCanister('ledger_sample_backend');
+    const [authenticatedLedgerSampleBackend, { error, loading: ledgerBackendLoading }] = useCanister('ledger_sample_backend');
+    const [blockHeight, setBlockHeight] = useState<number | null>(null);
+    const [isNotifyEnabled, setIsNotifyEnabled] = useState(false);
 
     const icpToE8s = (icpAmount: number) => {
         return BigInt(Math.floor(icpAmount * 1e8));
@@ -20,82 +29,76 @@ const DepositToCanister = () => {
             setCanisterAccount(account);
         };
         fetchCanisterAccount();
-    }, []);
+    }, []);    
 
     const [transfer, { loading, error: useTransferError }] = useTransfer({
         to: canisterAccount,
-        amount: Number(amount),
+        amount: Number(amount)
     });
 
-
-    const maxRetries = 5;
-    let retryCount = 0;
-    let delay = 2000;
-    let success = false;
-
-    const pollForBlockHeight = async () => {
-        while (retryCount < maxRetries && !success) {
-            try {
-                const transferResult = await transfer();
-                if (transferResult?.height) {
-                    console.log("height: ", transferResult.height);
-                    console.log("icpToE8s(amount): ", icpToE8s(amount));
-                    const notifyResult = await authenticatedLedgerBackend.notifyDeposit(
-                        transferResult.height, icpToE8s(amount)
-                    ) as Result_1;
-                    if ('ok' in notifyResult) {
-                        console.log("Success on notify: ", notifyResult);
-                        success = true;
-                        break; // Exit the loop if height is received
-                    } else {
-                        console.log("Non ok Notify result: ", notifyResult);
-                    }                    
-                }
-            } catch (error) {
-                console.error("Error during transfer attempt:", error);
-                retryCount++;
-                console.log(`Retrying transfer... (${retryCount}/${maxRetries})`);
-                // Wait for a delay before retrying
-                await new Promise(resolve => setTimeout(resolve, delay));
-                delay *= 2; // Optionally implement exponential backoff
-            }
-            if (useTransferError) {
-                console.error('Transfer error:', useTransferError);
-                // Handle the transfer error, e.g., display an error message to the user
-            }
+    useEffect(() => {
+        if (useTransferError) {
+            console.log('Transfer Error:', useTransferError);
         }
-        if (!success) {
-            throw new Error("Failed to obtain a valid block height after maximum retries.");
+    }, [useTransferError]); 
+
+    const depositActions = async () => {
+        if (amount) {
+            const result = await transfer();
+            if (result && 'ok' in result) {
+                const height = result.ok;
+                setBlockHeight(height); // Set the block height from the transfer
+                setIsNotifyEnabled(true);
+                afterDeposit('success', height);
+            } else if (result) {
+                const errorMessage = result.err
+                afterDeposit('error', errorMessage);
+                console.error('Transfer failed:', errorMessage);
+            } else {
+                afterDeposit('error', useTransferError?.message);
+                console.error('transfer returned undefined.');
+            }
         }
     };
 
-    // Usage of pollForBlockHeight
-    const onDeposit = async () => {
-        try {
-            console.log("called onDeposit, waiting for pollForBlockHeight");
-            const blockHeight = await pollForBlockHeight();
-            // Proceed with the block height
-        } catch (error) {
-            // Handle the case where a valid block height was not obtained
-            console.error(error);
+    const notifyActions = async () => {
+        if (blockHeight !== null && amount) {
+            const e8sAmount = icpToE8s(amount);
+            const notifyResult = await authenticatedLedgerSampleBackend.notifyDeposit(
+                blockHeight, e8sAmount
+            ) as Result_1;
+            if (notifyResult && 'ok' in notifyResult) {
+                console.log("Success on notify: ", notifyResult);
+                await afterNotify('success', { blockHeight, e8sAmount });
+            } else if (notifyResult) {
+                const errorMessage = notifyResult.err; // Define errorMessage here
+                await afterNotify('error', errorMessage);
+                console.log("Non ok Notify result: ", notifyResult);
+            } else {
+                console.error('notifyDeposit returned undefined.');
+            }
+            setIsNotifyEnabled(false); // Disable the button after notifying
+            setAmount(0);//reset amount after notify
+            setBlockHeight(null);
         }
     };
-
 
     return (
         <div className="deposit-to-canister-widget">
             {wallet ? (
                 <>
-                    <p>Deposit ICP to Canister: {canisterAccount} </p>
+                    <h2>Deposit ICP to Canister Acct: {canisterAccount}</h2>
+                    {loading && <div>Loading...</div>}
+                    {useTransferError && <div>Error: {useTransferError.message}</div>}
                     <input
                         type="number"
                         value={amount}
                         onChange={(e) => setAmount(Number(e.target.value))}
-                        className="amount-input"
-                        placeholder="Amount ICP"
-                        step="0.0001"
+                        placeholder="Enter amount to deposit"
                     />
-                    <button className="connect-button" onClick={onDeposit} disabled={loading}>Deposit to Canister</button>
+                    <button onClick={depositActions} disabled={loading}>Deposit</button>
+                    {blockHeight !== null && <p>Block Height: {blockHeight}</p>}
+                    <button onClick={notifyActions} disabled={!isNotifyEnabled || loading}>Notify</button>
                 </>
             ) : (
                 <p className="deposit-to-canister-widget-disabled">Connect with a wallet to access this example</p>

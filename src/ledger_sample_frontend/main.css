@@ -25,3 +25,30 @@
     right: 0;
     padding: 10px; /* Adjust padding as needed */
   }
+
+  .app-container {
+    display: flex;    
+    justify-content: space-between;
+  }
+
+  .horizontal-container {
+    display: flex;
+    flex-direction: row; /* Stack children horizontally */
+    justify-content: space-between;
+  }
+  
+  .event-log {
+    height: 100vh; /* Full height of the viewport */
+    overflow-y: auto; /* Scrollable */
+    border-left: 1px solid #ddd; /* Add a border to the left */
+    padding: 10px;
+  }
+
+  .main-content {
+    flex: 3;
+  }
+  
+  .event-log-container {
+    flex: 1;
+    /* Adjust the width as needed */
+  }

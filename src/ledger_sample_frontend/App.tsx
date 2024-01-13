@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, { useState } from 'react';
 import ReclaimToCallerWidget from './components/ReclaimToCallerWidget';
 import ReclaimToAdminWidget from './components/ReclaimToAdminWidget';
 import CanisterBalanceWidget from './components/CanisterBalanceWidget';
@@ -12,7 +12,6 @@ import { ConnectButton, ConnectDialog, Connect2ICProvider, useConnect } from "@c
 import { DepositToCanister } from "./components/DepositToCanister"
 import { Profile } from "./components/Profile"
 import './main.css';
-
 
 const client = createClient({
   canisters: {
@@ -31,6 +30,7 @@ const AppRoot = () => (
 )
 
 const App = () => {
+  const [eventLog, setEventLog] = useState<string[]>([]);
   const [showWalletWidgets, setShowWalletWidgets] = useState(false);
   const { isConnected, principal, activeProvider } = useConnect({
     onConnect: () => {
@@ -47,32 +47,65 @@ const App = () => {
 
   const handleReclaimSuccess = (response: string) => {
     // Logic to handle success response
-    alert(`Reclaim Success: ${response}`);
+    // alert(`Reclaim Success: ${response}`);
+    setEventLog(log => [...log, `Reclaim success received:  ${response}`]);
   };
 
   const handleReclaimError = (error: string) => {
     // Logic to handle error response
-    alert(`Reclaim Error: ${error}`);
+    // alert(`Reclaim Error: ${error}`);
+    setEventLog(log => [...log, `Reclaim error received:  ${error}`]);
+  };
+
+  // Define the handler functions
+  const handleDeposit = async (status: string, info: { amount: number }): Promise<void> => {
+    if (status === 'success') {
+      setEventLog(log => [...log, `Deposit completed: Amount ${info.amount}`]);
+    } else {
+      setEventLog(log => [...log, `Deposit error: ${info}`]);
+    }
+  };
+
+  const handleNotify = async (status: string, info: { blockHeight: number, amount: bigint } | string) => {
+    if (status === 'success' && typeof info === 'object' && 'blockHeight' in info) {
+      setEventLog(log => [...log, `Notification received: Block ${info.blockHeight}, Amount ${info.amount}`]);
+    } else {
+      setEventLog(log => [...log, `Notify error: ${info}`]);
+    }
   };
 
   return (
-    <div>
-      <div className="connect-button-container">
-        <ConnectButton />
+    <div className="app-container">
+      <div className="main-content">
+        <div className="connect-button-container">
+          <ConnectButton />
+        </div>
+        <p className="ledger-sample-title">
+          <h1>Ledger Sample</h1>
+        </p>
+        {showWalletWidgets && (
+          <div className="wallet-dependent-widgets">
+            <DepositToCanister afterDeposit={handleDeposit} afterNotify={handleNotify} />
+            <Profile />
+            <ReclaimToCallerWidget onReclaimSuccess={handleReclaimSuccess} onReclaimError={handleReclaimError} />
+          </div>)}
+        <ReclaimToAdminWidget onReclaimSuccess={handleReclaimSuccess} onReclaimError={handleReclaimError} />
+        <CanisterBalanceWidget />
+        <CanisterDepositsWidget />
+        <ConnectDialog dark={false} />
       </div>
-      <p className="ledger-sample-title">
-        <h1>Ledger Sample</h1>
-      </p>
-      {showWalletWidgets && (
-        <div className="wallet-dependent-widgets">      
-        <DepositToCanister />
-        <Profile />
-        <ReclaimToCallerWidget onReclaimSuccess={handleReclaimSuccess} onReclaimError={handleReclaimError} />
-      </div>)}      
-      <ReclaimToAdminWidget onReclaimSuccess={handleReclaimSuccess} onReclaimError={handleReclaimError} />
-      <CanisterBalanceWidget />
-      <CanisterDepositsWidget />
-      <ConnectDialog dark={false} />
+      <div className="event-log-container">
+        {
+          <div className="event-log">
+            <h2>Event Log</h2>
+            <ul>
+              {eventLog.map((entry, index) => (
+                <li key={index}>{entry}</li>
+              ))}
+            </ul>
+          </div>
+        }
+      </div>
     </div>
   );
 };
