@@ -42,6 +42,15 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
   );
   stable var deposits : Map.Map<Principal, Nat64> = Map.new<Principal, Nat64>();
 
+  public shared ({ caller }) func clearAllDeposits() : async Result.Result<Text, Text> {
+    if (caller != adminPrincipal) {
+      return #err("Unauthorized: Only the admin can call reclaimICPToAdmin.");
+    };
+    deposits := Map.new<Principal, Nat64>();
+    // Optionally, you can return a confirmation message or a result
+    return #ok("All deposits have been cleared.");
+  };
+
   type TransactionType = { #Deposit; #Withdrawal };
   type TransactionInfo = { txType : TransactionType; processed : Bool };
   //This map is actually from https://github.com/ZhenyaUsenko/motoko-hash-map
@@ -475,9 +484,9 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
           };
           case (#Err(e)) {
             return #err("Transfer failed: " # debug_show (e));
-          };         
+          };
         };
-      };      
+      };
     };
   };
 

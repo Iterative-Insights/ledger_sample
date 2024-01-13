@@ -3,9 +3,10 @@ import ReclaimToCallerWidget from './components/ReclaimToCallerWidget';
 import ReclaimToAdminWidget from './components/ReclaimToAdminWidget';
 import CanisterBalanceWidget from './components/CanisterBalanceWidget';
 import CanisterDepositsWidget from './components/CanisterDepositsWidget';
+import ClearAllDepositsWidget from './components/ClearAllDepositsWidget';
 import { defaultProviders } from "@connect2ic/core/providers"
 import { createClient } from "@connect2ic/core"
-// import { Connect2ICProvider } from "@connect2ic/react"
+
 import "@connect2ic/core/style.css"
 import * as ledger_sample_backend from "../declarations/ledger_sample_backend"
 import { ConnectButton, ConnectDialog, Connect2ICProvider, useConnect } from "@connect2ic/react"
@@ -32,6 +33,7 @@ const AppRoot = () => (
 const App = () => {
   const [eventLog, setEventLog] = useState<string[]>([]);
   const [showWalletWidgets, setShowWalletWidgets] = useState(false);
+  const [isNotifying, setIsNotifying] = useState(false);
   const { isConnected, principal, activeProvider } = useConnect({
     onConnect: () => {
       // Signed in
@@ -58,19 +60,21 @@ const App = () => {
   };
 
   // Define the handler functions
-  const handleDeposit = async (status: string, info: { amount: number }): Promise<void> => {
-    if (status === 'success') {
-      setEventLog(log => [...log, `Deposit completed: Amount ${info.amount}`]);
+  const handleDeposit = async (status: string, details: { height?: number, amount?: number, message?: string }): Promise<void> => {
+    console.log('handleDeposit details:', details);
+    if (status === 'success' && details.amount !== undefined) {
+      setEventLog(log => [...log, `Deposit completed: Amount: ${details.amount}. Height: ${details.height}`]);
     } else {
-      setEventLog(log => [...log, `Deposit error: ${info}`]);
+      setEventLog(log => [...log, `Deposit error: ${details.message || 'Unknown error'}. Amount: ${details.amount}`]);
     }
   };
 
-  const handleNotify = async (status: string, info: { blockHeight: number, amount: bigint } | string) => {
-    if (status === 'success' && typeof info === 'object' && 'blockHeight' in info) {
-      setEventLog(log => [...log, `Notification received: Block ${info.blockHeight}, Amount ${info.amount}`]);
+  const handleNotify = async (status: "success" | "error", details: { height?: bigint, e8sAmount?: bigint, message?: string }): Promise<void> => {
+    console.log('handleNotify details:', details);
+    if (status === 'success' && details.height !== undefined && details.e8sAmount !== undefined) {
+      setEventLog(log => [...log, `Notification received: Block ${details.height}, e8s Amount ${details.e8sAmount}`]);
     } else {
-      setEventLog(log => [...log, `Notify error: ${info}`]);
+      setEventLog(log => [...log, `Notify error: ${details.message || 'Unknown error'}`]);
     }
   };
 
@@ -86,25 +90,30 @@ const App = () => {
         {showWalletWidgets && (
           <div className="wallet-dependent-widgets">
             <DepositToCanister afterDeposit={handleDeposit} afterNotify={handleNotify} />
-            <Profile />
             <ReclaimToCallerWidget onReclaimSuccess={handleReclaimSuccess} onReclaimError={handleReclaimError} />
           </div>)}
         <ReclaimToAdminWidget onReclaimSuccess={handleReclaimSuccess} onReclaimError={handleReclaimError} />
         <CanisterBalanceWidget />
         <CanisterDepositsWidget />
+        <ClearAllDepositsWidget />
         <ConnectDialog dark={false} />
       </div>
-      <div className="event-log-container">
-        {
-          <div className="event-log">
-            <h2>Event Log</h2>
-            <ul>
-              {eventLog.map((entry, index) => (
-                <li key={index}>{entry}</li>
-              ))}
-            </ul>
-          </div>
-        }
+      <div className="right-side-container">
+        <div className="event-log-container">
+          {
+            <div className="event-log">
+              <h2>Event Log</h2>
+              <ul>
+                {eventLog.map((entry, index) => (
+                  <li key={index}>{entry}</li>
+                ))}
+              </ul>
+            </div>
+          }
+        </div>
+        <div className="profile-container">
+          {showWalletWidgets && <Profile />}
+        </div>
       </div>
     </div>
   );

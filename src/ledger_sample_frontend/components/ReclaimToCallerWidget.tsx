@@ -18,44 +18,50 @@ interface ReclaimError {
 type ReclaimResponse = ReclaimSuccess | ReclaimError;
 
 // const ReclaimWidget: React.FC = () => {
-  const ReclaimToCallerWidget: React.FC<ReclaimWidgetProps> = ({ onReclaimSuccess, onReclaimError }) => {
+const ReclaimToCallerWidget: React.FC<ReclaimWidgetProps> = ({ onReclaimSuccess, onReclaimError }) => {
   const [wallet] = useWallet()
-  const [authenticatedLedgerBackend, { error, loading: ledgerBackendLoading }] = 
+  const [authenticatedLedgerSampleBackend, { error, loading: ledgerBackendLoading }] =
     useCanister('ledger_sample_backend');
-    
-    const handleReclaim = async () => {
-      if (authenticatedLedgerBackend && authenticatedLedgerBackend.reclaimICP) {
-        try {
-          const result = await authenticatedLedgerBackend.reclaimICP() as ReclaimResponse;
-          if ("ok" in result) {
-            console.log('Reclaim Success:', result.ok);
-            if (onReclaimSuccess) {
-              onReclaimSuccess(result.ok);
-            }
-          } else {
-            console.error('Reclaim Error:', result.err);
-            onReclaimError?.(result.err);
+  const [isReclaiming, setIsReclaiming] = useState(false);
+
+  const handleReclaim = async () => {
+    if (authenticatedLedgerSampleBackend && authenticatedLedgerSampleBackend.reclaimICP) {
+      try {
+        setIsReclaiming(true);
+        const result = await authenticatedLedgerSampleBackend.reclaimICP() as ReclaimResponse;
+        if ("ok" in result) {
+          console.log('Reclaim Success:', result.ok);
+          if (onReclaimSuccess) {
+            onReclaimSuccess(result.ok);
           }
-        } catch (error) {
-          console.error('Reclaim Error:', error);
-          if (onReclaimError) {
-            onReclaimError((error as ReclaimError).err);
-          }
+        } else {
+          console.error('Reclaim Error:', result.err);
+          onReclaimError?.(result.err);
         }
-      } else {
-        console.error('Authenticated ledger backend is not available.');
+      } catch (error) {
+        console.error('Reclaim Error:', error);
         if (onReclaimError) {
-          onReclaimError('Authenticated ledger backend is not available.');
+          onReclaimError((error as ReclaimError).err);
         }
+      } finally {
+        setIsReclaiming(false);
       }
-    };
+    } else {
+      console.error('Authenticated ledger backend is not available.');
+      if (onReclaimError) {
+        onReclaimError('Authenticated ledger backend is not available.');
+      }
+    }
+  };
 
   return (
     <div className="reclaim-to-caller-widget">
       {wallet ? (
         <>
           <h3>Reclaim ICP for: {wallet.principal?.toString()}</h3>
-          <button onClick={handleReclaim}>Reclaim</button>
+          <button onClick={handleReclaim} disabled={isReclaiming} style={{ backgroundColor: isReclaiming ? 'grey' : 'initial' }}>
+            {isReclaiming ? 'Reclaiming Your ICP...' : 'Reclaim Your ICP'}
+          </button>
         </>
       ) : (
         <p className="reclaim-to-caller-widget-disabled">Connect with a wallet to access this example</p>
