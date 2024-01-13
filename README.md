@@ -18,13 +18,17 @@ Key Features
 
 1. Account Management: The application maintains a map of account balances for each principal. It provides functions to get the balance of an account, check the balance of the caller, and get all balances.
 
-2. Transaction Management: The application supports deposit and withdrawal transactions. It maintains a transaction log and a transaction counter. It also provides a function to reclaim ICP.
+2. Transaction Management: The application supports deposit and withdrawal transactions. It maintains a transaction log. It also provides a function to reclaim ICP to caller, and
+an emergency reclaim function for the admin.
 
 3. Interactions with Ledger Canister: The application interacts with the ledger canister to perform transactions and query blocks. It also verifies deposits with the ledger.
 
 4. Principal and Account ID Retrieval: The application provides functions to get the principal and account ID of the caller, the installer, and the canister.
 
-5. Concurrency Control: The application uses a lock lookup map to synchronize principal actions against the canister.
+5. Concurrency Control: The application uses a lock lookup map to synchronize principal actions against the canister, and a transaction log to prevent double credits to the balance
+map.  The transaction log uses the block height of the transaction as the transaction id.
+This is possible as the ICP ledger uses 1 block per transaction.  See https://mmapped.blog/posts/13-icp-ledger#transactions-and-blocks for details.
+
 Key 
 
 Data Structures
@@ -76,8 +80,6 @@ Key Functions
 - reclaimICPToAdmin: Allows the admin to reclaim all ICP tokens from the canister to the admin's account.
 
 Additionally, there are several private functions and variables:
-
-- incTransactionCounter: Increments and returns the transaction counter.
 
 - isAlreadyProcessingLookup_: A map to track if a principal is already processing an action to prevent concurrent operations.
 

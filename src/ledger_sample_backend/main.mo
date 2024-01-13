@@ -394,14 +394,6 @@ shared ({ caller = installer_ }) actor class LedgerSample() = this {
       });
       let firstBlock = query_blocks_response.blocks[0];
 
-      // let memo = firstBlock.transaction.memo;
-      // if (memo != transactionIdNat64) {
-      //   return #err(
-      //     "transactionId different from memo: " # debug_show (memo) #
-      //     " transactionId: " # debug_show (transactionIdNat64)
-      //   );
-      // };
-
       let op = firstBlock.transaction.operation;
       switch (op) {
         case (? #Transfer(transferOp)) {
