@@ -62,7 +62,7 @@ Make sure to execute this command after you've made any changes to your canister
 
 `dfx deploy --network ic`
 
-After following these steps, your project should be up and running on ICP mainnet.  [You can also deploy to motoko playground (a quasi testnet) for free without cycles](https://internetcomputer.org/docs/current/developer-docs/setup/playground) but the canisters get automatically removed after 5-10 minutes if not used, which is not good if the canister has ICP deposited.
+After following these steps, your project should be up and running on ICP mainnet.  [You can also dfx deploy --playground (a quasi testnet) for free without cycles](https://internetcomputer.org/docs/current/developer-docs/setup/playground) but the canisters get automatically removed after 5-10 minutes if not used, which is not good if the canister has ICP deposited.
 
 
 ## Ledger Sample Backend
