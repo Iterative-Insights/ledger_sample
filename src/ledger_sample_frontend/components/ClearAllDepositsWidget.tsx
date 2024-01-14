@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useCanister } from "@connect2ic/react";
+import { Result } from "../../declarations/ledger_sample_backend/ledger_sample_backend.did"
 
 const ClearAllDepositsWidget: React.FC = () => {
     const [authenticatedLedgerSampleBackend, { error, loading }] = useCanister('ledger_sample_backend');
@@ -9,8 +10,12 @@ const ClearAllDepositsWidget: React.FC = () => {
         if (authenticatedLedgerSampleBackend && authenticatedLedgerSampleBackend.clearAllDeposits) {
             setIsClearing(true);
             try {
-                const result = await authenticatedLedgerSampleBackend.clearAllDeposits();
-                console.log('Clear All Deposits:', result);
+                const result = await authenticatedLedgerSampleBackend.clearAllDeposits() as Result;
+                if ("ok" in result) {
+                console.log('Clear All Deposits:', result.ok);
+                } else {
+                    console.error('Clear All Deposits error:', result.err)
+                }
                 // Handle success, update UI, etc.
             } catch (error) {
                 console.error('Clear All Deposits Error:', error);
