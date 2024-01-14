@@ -73,14 +73,14 @@ const DepositToCanister: React.FC<DepositToCanisterProps> = ({
         if (amount) {
             const result = await transfer();
             console.log("transfer result from depositActions: ", result)
-            if (result && 'height' in result) {
+            if (result && 'height' in result && typeof result.height === 'number') {
                 const height = result.height;
                 setBlockHeight(height); // Set the block height from the transfer
                 setIsNotifyEnabled(true);
                 afterDeposit('success', { height: height, amount: amount });
-            } else { // If result is not okay, it means there was an error.
+            } else {
                 // The error could be in result.err or in useTransferError.
-                const errorMessage = result?.err || useTransferError?.message || "Unknown error";
+                const errorMessage =  useTransferError?.kind || "Unknown error";
                 afterDeposit('error', { message: errorMessage, amount: amount });
                 console.error('Transfer failed:', errorMessage , '. Amount: ', amount);
             }
@@ -129,7 +129,7 @@ const DepositToCanister: React.FC<DepositToCanisterProps> = ({
                 <>
                     <h2>Deposit ICP to Canister Acct: {canisterAccount}</h2>
                     {loading && <div>Loading...</div>}
-                    {useTransferError && <div>Error: {useTransferError.message}</div>}
+                    {useTransferError && <div>Error: {useTransferError.kind}</div>}
                     <input
                         type="number"
                         value={amount}
