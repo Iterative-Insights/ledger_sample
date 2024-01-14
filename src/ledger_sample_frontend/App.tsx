@@ -47,16 +47,10 @@ const App = () => {
     }
   })
 
-  const handleReclaimSuccess = (response: string) => {
+  const handleReclaim = (response: string) => {
     // Logic to handle success response
     // alert(`Reclaim Success: ${response}`);
-    setEventLog(log => [...log, `Reclaim success received:  ${response}`]);
-  };
-
-  const handleReclaimError = (error: string) => {
-    // Logic to handle error response
-    // alert(`Reclaim Error: ${error}`);
-    setEventLog(log => [...log, `Reclaim error received:  ${error}`]);
+    setEventLog(log => [...log, `Reclaim event received:  ${response}`]);
   };
 
   // Define the handler functions
@@ -90,9 +84,9 @@ const App = () => {
         {showWalletWidgets && (
           <div className="wallet-dependent-widgets">
             <DepositToCanister afterDeposit={handleDeposit} afterNotify={handleNotify} />
-            <ReclaimToCallerWidget onReclaimSuccess={handleReclaimSuccess} onReclaimError={handleReclaimError} />
+            <ReclaimToCallerWidget afterReclaim={handleReclaim} />
           </div>)}
-        <ReclaimToAdminWidget onReclaimSuccess={handleReclaimSuccess} onReclaimError={handleReclaimError} />
+        <ReclaimToAdminWidget afterReclaim={handleReclaim} />
         <CanisterBalanceWidget />
         <CanisterDepositsWidget />
         <ClearAllDepositsWidget />

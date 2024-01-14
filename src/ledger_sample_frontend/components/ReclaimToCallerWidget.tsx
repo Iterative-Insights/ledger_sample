@@ -1,24 +1,13 @@
 import React, { useState, useEffect } from "react"
 import { useWallet, useCanister } from "@connect2ic/react"
 import { ledger_sample_backend } from "../../declarations/ledger_sample_backend"; // Adjust the import path as necessary
+import { Result } from "../../declarations/ledger_sample_backend/ledger_sample_backend.did";
 
-interface ReclaimWidgetProps {
-  onReclaimSuccess?: (response: string) => void;
-  onReclaimError?: (error: string) => void;
+interface ReclaimToCallerWidgetProps {
+  afterReclaim: (response: string) => void;
 }
 
-// Define the expected response types
-interface ReclaimSuccess {
-  ok: string;
-}
-
-interface ReclaimError {
-  err: string;
-}
-type ReclaimResponse = ReclaimSuccess | ReclaimError;
-
-// const ReclaimWidget: React.FC = () => {
-const ReclaimToCallerWidget: React.FC<ReclaimWidgetProps> = ({ onReclaimSuccess, onReclaimError }) => {
+const ReclaimToCallerWidget: React.FC<ReclaimToCallerWidgetProps> = ({ afterReclaim }) => {
   const [wallet] = useWallet()
   const [authenticatedLedgerSampleBackend, { error, loading: ledgerBackendLoading }] =
     useCanister('ledger_sample_backend');
@@ -28,29 +17,23 @@ const ReclaimToCallerWidget: React.FC<ReclaimWidgetProps> = ({ onReclaimSuccess,
     if (authenticatedLedgerSampleBackend && authenticatedLedgerSampleBackend.reclaimICP) {
       try {
         setIsReclaiming(true);
-        const result = await authenticatedLedgerSampleBackend.reclaimICP() as ReclaimResponse;
+        const result = await authenticatedLedgerSampleBackend.reclaimICP() as Result;
         if ("ok" in result) {
           console.log('Reclaim Success:', result.ok);
-          if (onReclaimSuccess) {
-            onReclaimSuccess(result.ok);
-          }
+          afterReclaim(result.ok);
         } else {
           console.error('Reclaim Error:', result.err);
-          onReclaimError?.(result.err);
+          afterReclaim(result.err);
         }
       } catch (error) {
         console.error('Reclaim Error:', error);
-        if (onReclaimError) {
-          onReclaimError((error as ReclaimError).err);
-        }
+        afterReclaim(error instanceof Error ? error.message : String(error));
       } finally {
         setIsReclaiming(false);
       }
     } else {
       console.error('Authenticated ledger backend is not available.');
-      if (onReclaimError) {
-        onReclaimError('Authenticated ledger backend is not available.');
-      }
+      afterReclaim('Authenticated ledger backend is not available');
     }
   };
 
