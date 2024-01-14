@@ -19,7 +19,7 @@ const DepositToCanister: React.FC<DepositToCanisterProps> = ({
     const [isNotifyEnabled, setIsNotifyEnabled] = useState(false);
     const [isWalletConnected, setIsWalletConnected] = useState(false);
     const connector = useConnect();
-    const [isNotifying, setIsNotifying] = useState(false);    
+    const [isNotifying, setIsNotifying] = useState(false);
 
     const icpToE8s = (icpAmount: number) => {
         return BigInt(Math.floor(icpAmount * 1e8));
@@ -33,7 +33,7 @@ const DepositToCanister: React.FC<DepositToCanisterProps> = ({
         const handleConnectionChange = () => {
             setIsWalletConnected(connector.isConnected);
         };
-        
+
     }, [connector]); // Re-run this effect if the connector object changes
 
 
@@ -61,28 +61,38 @@ const DepositToCanister: React.FC<DepositToCanisterProps> = ({
         // If blockHeight is not null, it means a deposit has been made and we have a new height.
         // We can then proceed to notify.
         const autoNotify = async () => {
-          if (blockHeight !== null && !isNotifying) {
-            await notifyActions();
-          }
+            if (blockHeight !== null && !isNotifying) {
+                await notifyActions();
+            }
         };
-      
+
         autoNotify();
-      }, [blockHeight]); // Only re-run the effect if blockHeight changes.
+    }, [blockHeight]); // Only re-run the effect if blockHeight changes.
 
     const depositActions = async () => {
         if (amount) {
             const result = await transfer();
             console.log("transfer result from depositActions: ", result)
-            if (result && 'height' in result && typeof result.height === 'number') {
-                const height = result.height;
-                setBlockHeight(height); // Set the block height from the transfer
-                setIsNotifyEnabled(true);
-                afterDeposit('success', { height: height, amount: amount });
-            } else {
+            if (result.isOk()) {
+                const successValue = result.value;
+                console.log('Transfer successful', successValue);
+                if (successValue.height) {
+                    const height = successValue.height;
+                    setBlockHeight(height); // Set the block height from the transfer
+                    afterDeposit('success', { height: height, amount: amount });
+                    console.log('Block height:', height);                    
+                }
+                if (successValue.transactionId) {
+                    console.log('Transaction ID:', successValue.transactionId);
+                }                                
+                setIsNotifyEnabled(true);                
+            } else {                
                 // The error could be in result.err or in useTransferError.
-                const errorMessage =  useTransferError?.kind || "Unknown error";
-                afterDeposit('error', { message: errorMessage, amount: amount });
-                console.error('Transfer failed:', errorMessage , '. Amount: ', amount);
+                const errorValue = result.error;
+                const errorMessage = "Error: " + (errorValue.kind || useTransferError?.kind || "Unknown error");                
+                afterDeposit('error', { message: errorMessage, amount: amount });                
+                console.error('Transfer failed:', errorValue.kind, 'msg: ', 
+                    errorMessage, 'Amount: ', amount);
             }
         }
     };
@@ -104,7 +114,7 @@ const DepositToCanister: React.FC<DepositToCanisterProps> = ({
                     console.log("Non ok Notify result: ", errorMessage);
                 } else {
                     console.error('notifyDeposit returned undefined.');
-                }                
+                }
                 // setAmount(0);//reset amount after notify
                 setBlockHeight(null);
             } catch (error) {
@@ -137,7 +147,7 @@ const DepositToCanister: React.FC<DepositToCanisterProps> = ({
                         placeholder="Enter amount to deposit"
                     />
                     <button onClick={depositActions} disabled={isNotifyEnabled || loading}>Deposit</button>
-                    <button onClick={notifyActions} disabled={!isNotifyEnabled || isNotifying || loading}> 
+                    <button onClick={notifyActions} disabled={!isNotifyEnabled || isNotifying || loading}>
                         {isNotifying ? 'Notifying...' : 'Notify'}</button>
                     {blockHeight !== null && <p>Block Height: {blockHeight}</p>}
                 </>
